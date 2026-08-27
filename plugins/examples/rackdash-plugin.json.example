@@ -1,0 +1,6 @@
+{
+  "id": "github_example",
+  "name": "GitHub Example",
+  "version": "1.0.0",
+  "entry": "sample_api_plugin.py"
+}

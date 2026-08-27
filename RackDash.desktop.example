@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=RackDash
+Comment=Rackmount dashboard
+Exec=chromium --kiosk --no-first-run --noerrdialogs --disable-session-crashed-bubble http://127.0.0.1:8080
+Icon=utilities-system-monitor
+Terminal=false
+StartupNotify=false

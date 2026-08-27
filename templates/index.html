@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#071016">
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ app_version }}">
+  <style>{{ plugin_css|safe }}</style>
+</head>
+<body>
+<div id="rackdash">
+  <header class="topbar">
+    <div class="brand">RACK<span>DASH</span></div>
+    <nav class="tabs" id="tabs" aria-label="Dashboard tabs">
+      {% for plugin in plugins %}
+      <button
+        type="button"
+        class="tab{% if loop.first %} active{% endif %}"
+        data-plugin="{{ plugin.id }}"
+        data-refresh="{{ plugin.refresh_seconds }}"
+        data-accent="{{ plugin.accent }}"
+        aria-selected="{{ 'true' if loop.first else 'false' }}"
+      >
+        {% if plugin.icon %}<small>{{ plugin.icon }}</small>{% endif %}
+        <span>{{ plugin.name }}</span>
+      </button>
+      {% endfor %}
+      <button
+        type="button"
+        class="tab tab-health"
+        data-health-tab="true"
+        aria-selected="false"
+        title="Plugins and system health"
+      >
+        <small>SYS</small>
+        <span>Plugins</span>
+      </button>
+    </nav>
+    <div class="system-strip">
+      <span>CPU <b data-system="cpu">--%</b></span>
+      <span>RAM <b data-system="ram">--%</b></span>
+      <span>TEMP <b data-system="temp">--°C</b></span>
+      <time id="clock">--:--</time>
+    </div>
+  </header>
+
+  <main class="pages" id="pages">
+    {% for plugin in plugins %}
+    <section
+      class="plugin-page plugin-{{ plugin.id }}{% if loop.first %} active{% endif %}"
+      id="plugin-{{ plugin.id }}"
+      data-plugin="{{ plugin.id }}"
+      tabindex="0"
+    >
+      <div class="plugin-scroll">
+        {{ plugin.html|safe }}
+        <div class="plugin-error" data-role="plugin-error" hidden></div>
+      </div>
+    </section>
+    {% endfor %}
+    <section class="plugin-page plugin-health" id="health-page" tabindex="0">
+      <div class="plugin-scroll">
+        <div class="plugin-head">
+          <div>
+            <span class="eyebrow">RACKDASH HEALTH</span>
+            <h1>Plugins</h1>
+            <div class="muted">Plugin versions, GitHub update checks, and RackDash health.</div>
+          </div>
+          <div class="health-head-actions"><button type="button" class="health-button health-restart" id="healthRestart">RESTART RACKDASH</button><button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button><button type="button" class="health-check-all" id="healthCheckAll">CHECK ALL UPDATES</button></div>
+        </div>
+
+        <div class="health-summary" id="healthSummary">
+          <article class="metric"><label>RACKDASH</label><strong data-health="app-version">--</strong><small>core version</small></article>
+          <article class="metric"><label>PLUGINS</label><strong data-health="plugin-count">--</strong><small>loaded plugins</small></article>
+          <article class="metric"><label>UPDATES</label><strong data-health="updates">--</strong><small>available</small></article>
+          <article class="metric"><label>STATUS</label><strong data-health="status">--</strong><small>system health</small></article>
+          <article class="metric"><label>HEALTHY</label><strong data-health="healthy-count">--</strong><small>plugins healthy</small></article>
+          <article class="metric"><label>ISSUES</label><strong data-health="issue-count">--</strong><small>need attention</small></article>
+        </div>
+
+        <section class="surface health-install-panel">
+<div class="section-label">INSTALL THIRD-PARTY PLUGIN</div>
+<div class="health-install-row"><input id="healthInstallUrl" placeholder="https://github.com/owner/rackdash-plugin"><button id="healthInstallButton" type="button">INSTALL</button></div>
+<div class="muted">Repository must contain rackdash-plugin.json. Restart RackDash after install/update.</div>
+<div class="health-install-status" id="healthInstallStatus"></div>
+</section>
+<section class="surface health-plugin-panel">
+          <div class="section-label">INSTALLED PLUGINS</div>
+          <div class="health-plugin-list" id="healthPluginList"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+<div class="settings-modal" id="settingsModal" hidden>
+<div class="settings-backdrop" data-close-settings="true"></div>
+<section class="settings-window"><div class="settings-window-head"><div><span class="eyebrow">RACKDASH SETTINGS</span><h2 id="settingsTitle">Settings</h2></div><button class="settings-close" data-close-settings="true">×</button></div>
+<div class="settings-fields" id="settingsFields"></div><div class="settings-note" id="settingsNote"></div>
+<div class="settings-actions"><button data-close-settings="true">CANCEL</button><button class="primary" id="settingsSave">SAVE</button></div></section></div>
+  <footer class="footer">
+    <span>PI <b data-system="ip">--</b></span>
+    <span>UPTIME <b data-system="uptime">--</b></span>
+    <span>RACKDASH <b>v{{ app_version }}</b></span>
+    <label class="rotate-toggle">
+      <input id="autoRotate" type="checkbox" checked>
+      <span class="toggle-ui" aria-hidden="true"></span>
+      <span>AUTO ROTATE</span>
+    </label>
+  </footer>
+</div>
+
+<script>
+window.RACKDASH_CONFIG = {
+  rotateSeconds: {{ rotate_seconds|int }},
+  plugins: {{ plugins|tojson }}
+};
+window.RackDashPlugins = {};
+</script>
+<script>{{ plugin_js|safe }}</script>
+<script src="/static/app.js?v={{ app_version }}"></script>
+
+<div class="connection-overlay" id="connectionOverlay" hidden>
+  <div class="connection-card">
+    <span class="eyebrow">CONNECTION LOST</span>
+    <h2>RackDash server is offline</h2>
+    <p>The dashboard will check again every <strong>30 seconds</strong> and refresh automatically when the server returns.</p>
+    <p id="connectionCountdown">Retrying in 30s...</p>
+  </div>
+</div>
+</body>
+</html>
