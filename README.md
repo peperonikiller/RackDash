@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="[http://some_place.com/image.png](https://raw.githubusercontent.com/peperonikiller/RackDash/refs/heads/main/rackdash_logo.png)" />
-</p>
+![RackDash Logo](rackdash_logo.png)
 
 # RackDash
 
