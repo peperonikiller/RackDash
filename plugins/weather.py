@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "1.1.3"
+PLUGIN_VERSION = "1.1.4"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -306,8 +306,8 @@ PLUGIN_CSS = r"""
   margin-top:.55rem;
   overflow:hidden;
   border-radius:.55rem;
-  background:#121a20;
-  border:1px solid rgba(111,183,255,.12);
+  background:linear-gradient(180deg,#0b1117,#0d151c);
+  border:1px solid rgba(111,183,255,.16);
 }
 .plugin-weather .wx-map-base,
 .plugin-weather .wx-radar-overlay,
@@ -325,17 +325,21 @@ PLUGIN_CSS = r"""
   object-fit:cover;
   user-select:none;
   pointer-events:none;
+  filter:grayscale(.35) brightness(.42) contrast(1.15) saturate(.7);
 }
 .plugin-weather .wx-radar-overlay{
   object-fit:fill;
-  opacity:.82;
+  opacity:.86;
   z-index:2;
   transition:opacity .15s linear;
+  mix-blend-mode:screen;
+  filter:saturate(1.35) contrast(1.12) brightness(.96);
 }
 .plugin-weather .wx-map-vignette{
   z-index:3;
   pointer-events:none;
-  box-shadow:inset 0 0 45px rgba(0,0,0,.35);
+  background:linear-gradient(180deg,rgba(8,14,19,.10),rgba(8,14,19,.22));
+  box-shadow:inset 0 0 58px rgba(0,0,0,.48);
 }
 .plugin-weather .wx-map-center{
   position:absolute;
