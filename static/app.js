@@ -328,15 +328,15 @@
               ${p.health?.missing_config?.length?`<span class="health-runtime-error">MISSING CONFIG · ${RackDash.escape(p.health.missing_config.join(", "))}</span>`:""}
             </div>
           </div>
-          <div class="health-version">v${RackDash.escape(p.version||"0.0.0")}</div>
+          <div class="health-version">v${RackDash.escape(p.version||"0.0.0")}${p.official?` <span class="official-chip">OFFICIAL</span>`:""}</div>
           <div class="health-update-status" data-update-status>Not checked</div>
           <div class="health-plugin-actions">
             <label class="health-toggle"><input type="checkbox" data-plugin-enabled="${RackDash.escape(p.id)}" ${p.enabled?"checked":""}> ENABLED</label>
             ${(p.config_fields||[]).length?`<button type="button" data-plugin-settings="${RackDash.escape(p.id)}">SETTINGS</button>`:""}
             <button type="button" class="test-button" data-plugin-test="${RackDash.escape(p.id)}" ${p.enabled?"":"disabled"}>TEST</button>
-            ${p.github_url?`<a href="${RackDash.escape(p.github_url)}" target="_blank" rel="noopener">GITHUB</a>`:""}
+            ${p.github_url?`<a href="${RackDash.escape(p.official&&p.source_path?`${p.github_url}/blob/main/${p.source_path}`:p.github_url)}" target="_blank" rel="noopener">GITHUB</a>`:""}
             <button type="button" data-check-update="${RackDash.escape(p.id)}" ${p.github_url?"":"disabled"}>CHECK</button>
-            ${p.installer_managed?`<button type="button" data-managed-update="${RackDash.escape(p.id)}">UPDATE</button><button type="button" data-uninstall-plugin="${RackDash.escape(p.id)}">UNINSTALL</button>`:""}
+            ${p.official?`<button type="button" data-official-update="${RackDash.escape(p.id)}">UPDATE OFFICIAL</button>`:""}${p.installer_managed&&!p.official?`<button type="button" data-managed-update="${RackDash.escape(p.id)}">UPDATE</button><button type="button" data-uninstall-plugin="${RackDash.escape(p.id)}">UNINSTALL</button>`:""}
             ${(p.backups||[]).length?`<button type="button" data-plugin-rollback="${RackDash.escape(p.id)}">ROLLBACK</button>`:""}
             <button type="button" data-plugin-debug="${RackDash.escape(p.id)}">DEBUG</button>
             <button type="button" data-plugin-reload="${RackDash.escape(p.id)}">RELOAD</button>
@@ -383,6 +383,7 @@
           btn.textContent=original;
         }
       }));
+      list.querySelectorAll("[data-official-update]").forEach(btn=>btn.addEventListener("click",()=>officialPluginUpdate(btn.dataset.officialUpdate,btn)));
       list.querySelectorAll("[data-managed-update]").forEach(btn=>btn.addEventListener("click",()=>managedPluginUpdate(btn.dataset.managedUpdate,btn)));
       list.querySelectorAll("[data-uninstall-plugin]").forEach(btn=>btn.addEventListener("click",()=>uninstallPlugin(btn.dataset.uninstallPlugin,btn)));
       list.querySelectorAll("[data-check-update]").forEach(btn=>{
@@ -512,6 +513,24 @@
   }
   document.getElementById("settingsSave")?.addEventListener("click",()=>saveSettings(false));
   document.getElementById("settingsSaveRestart")?.addEventListener("click",()=>saveSettings(true));
+
+  async function officialPluginUpdate(id,button){
+    if(!confirm(`Update official RackDash plugin '${id}' from the main/plugins source file? A rollback backup will be kept.`))return;
+    button.disabled=true;
+    const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");
+    if(st)st.textContent="Downloading official plugin...";
+    try{
+      const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/update-official`,{method:"POST"});
+      const x=await r.json();
+      if(!x.ok)throw new Error(x.error||"Official update failed");
+      if(st){
+        st.textContent=`Installed official v${x.plugin.version}. Restart RackDash.`;
+        st.className="health-update-status update_available";
+      }
+    }catch(e){
+      if(st){st.textContent=e.message;st.className="health-update-status error";}
+    }finally{button.disabled=false;}
+  }
 
   async function managedPluginUpdate(id,button){button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st)st.textContent="Updating...";try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/update-managed`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");if(st){st.textContent=`Installed ${x.plugin.version}. Restart RackDash.`;st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
   async function uninstallPlugin(id,button){if(!confirm(`Uninstall ${id}? A backup will be kept.`))return;button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/uninstall`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Uninstall failed");if(st){st.textContent="Uninstalled. Restart RackDash.";st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}

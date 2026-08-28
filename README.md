@@ -471,3 +471,57 @@ full RackDash restart.
 
 Fields declared as `password`, `secret`, or `token` are masked in the browser.
 Submitting the unchanged `********` placeholder preserves the existing value.
+
+
+## Twitch plugin
+
+The built-in Twitch plugin watches one or more channels configured as a
+comma-separated list. When one or more channels are live, it shows the channel,
+current category/game, viewer count, stream title, and uptime. If nobody is
+live, it shows all configured offline channels and when their newest archived
+broadcast was created.
+
+```env
+TWITCH_CHANNELS=channelone,channeltwo
+TWITCH_CLIENT_ID=
+TWITCH_CLIENT_SECRET=
+```
+
+RackDash uses Twitch's server-to-server client-credentials OAuth flow. The app
+access token is cached only in memory. The client secret remains in
+`config.env` and is masked in RackDash Admin.
+
+Twitch does not expose a direct public last-streamed timestamp for an offline
+channel. RackDash uses the newest archived VOD as the official API proxy. If a
+broadcaster has VOD archiving disabled, Last Broadcast may be unavailable.
+
+
+## Official vs third-party plugin updates
+
+RackDash 2.2 separates first-party and third-party plugin update channels.
+
+Official plugins live in the main RackDash repository under `plugins/` and use:
+
+```python
+PLUGIN_OFFICIAL = True
+PLUGIN_SOURCE_PATH = "plugins/my_plugin.py"
+```
+
+For an official plugin, Admin fetches that exact file from the `main` branch,
+parses its `PLUGIN_VERSION`, and compares it with the installed plugin. This
+means an official plugin can be updated independently from the RackDash
+application release/tag.
+
+When **Update Official** is pressed, RackDash downloads only that source file,
+validates `PLUGIN_ID`, `PLUGIN_OFFICIAL`, `PLUGIN_SOURCE_PATH`, and Python
+syntax, keeps a rollback copy under `data/plugin_backups/`, replaces the plugin,
+and asks for a RackDash restart.
+
+Third-party plugins continue to use their own GitHub repository and
+`rackdash-plugin.json` manifest through the existing managed-plugin installer.
+
+Official plugin source repository:
+
+```text
+https://github.com/peperonikiller/RackDash/tree/main/plugins
+```

@@ -7,6 +7,8 @@ import requests
 PLUGIN_ID = "bitaxe"
 PLUGIN_NAME = "Bitaxe"
 PLUGIN_VERSION = "1.0.0"
+PLUGIN_OFFICIAL = True
+PLUGIN_SOURCE_PATH = "plugins/bitaxe.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
 PLUGIN_MAX_RACKDASH = ""
 PLUGIN_CAPABILITIES = ['network']

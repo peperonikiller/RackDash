@@ -5,6 +5,8 @@ import requests
 PLUGIN_ID = "printer"
 PLUGIN_NAME = "3D Printer"
 PLUGIN_VERSION = "1.0.0"
+PLUGIN_OFFICIAL = True
+PLUGIN_SOURCE_PATH = "plugins/printer.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
 PLUGIN_MAX_RACKDASH = ""
 PLUGIN_CAPABILITIES = ['network']

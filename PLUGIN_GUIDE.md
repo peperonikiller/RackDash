@@ -296,3 +296,20 @@ custom Flask routes, changing those routes still requires a process restart.
 Configuration fields using `password`, `token`, or `secret` are masked by
 RackDash when sent to the browser. Plugin authors should continue reading them
 with `os.getenv()` and should never return secret values from `get_data()`.
+
+
+## Official RackDash plugins
+
+First-party plugins shipped from the RackDash repository are marked:
+
+```python
+PLUGIN_OFFICIAL = True
+PLUGIN_SOURCE_PATH = "plugins/example.py"
+```
+
+Do not use those fields for third-party plugins. Third-party plugins should
+continue using a standalone GitHub repository plus `rackdash-plugin.json`.
+
+RackDash checks official plugin versions by reading their exact source file
+from the RackDash `main` branch. It does not compare official plugin versions
+against the RackDash application's GitHub release version.

@@ -33,6 +33,8 @@ class Plugin:
     min_rackdash: str
     max_rackdash: str
     capabilities: list[str]
+    official: bool
+    source_path: str
     last_attempt: float | None = None
     last_success: float | None = None
     last_error: str = ""
@@ -133,6 +135,8 @@ class PluginManager:
             min_rackdash=str(getattr(module,"PLUGIN_MIN_RACKDASH","")).strip(),
             max_rackdash=str(getattr(module,"PLUGIN_MAX_RACKDASH","")).strip(),
             capabilities=list(getattr(module,"PLUGIN_CAPABILITIES",[]) or []),
+            official=bool(getattr(module,"PLUGIN_OFFICIAL",False)),
+            source_path=str(getattr(module,"PLUGIN_SOURCE_PATH","")).strip(),
         )
 
     def get(self,plugin_id:str)->Plugin|None:
@@ -149,7 +153,7 @@ class PluginManager:
             st=self._settings(p)
             if not include_disabled and not st["enabled"]:continue
             if not include_hidden and not st["show_tab"]:continue
-            item={"id":p.id,"name":p.name,"order":st["order"],"refresh_seconds":st["refresh_seconds"],"rotation_seconds":st["rotation_seconds"],"auto_rotate":st["auto_rotate"],"show_tab":st["show_tab"],"enabled":st["enabled"],"accent":p.accent,"icon":p.icon,"github_url":p.github_url,"version":p.plugin_version,"config_schema":p.config_schema,"min_rackdash":p.min_rackdash,"max_rackdash":p.max_rackdash,"capabilities":p.capabilities}
+            item={"id":p.id,"name":p.name,"order":st["order"],"refresh_seconds":st["refresh_seconds"],"rotation_seconds":st["rotation_seconds"],"auto_rotate":st["auto_rotate"],"show_tab":st["show_tab"],"enabled":st["enabled"],"accent":p.accent,"icon":p.icon,"github_url":p.github_url,"version":p.plugin_version,"config_schema":p.config_schema,"min_rackdash":p.min_rackdash,"max_rackdash":p.max_rackdash,"capabilities":p.capabilities,"official":p.official,"source_path":p.source_path}
             if include_html:item["html"]=p.html
             rows.append(item)
         return rows

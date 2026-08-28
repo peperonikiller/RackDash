@@ -21,12 +21,13 @@ from admin_security import AdminSecurity
 from backup_manager import BackupManager
 from core_updater import CoreUpdater
 from admin_diagnostics import diagnostics, tail_file
+from official_plugin_updater import OfficialPluginUpdater
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.2.0"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
@@ -71,6 +72,12 @@ plugins = PluginManager(app=app, plugin_dir=BASE_DIR / "plugins", state_file=BAS
 plugins.load_all()
 plugin_installer = PluginInstaller(BASE_DIR / "plugins", BASE_DIR / "data" / "plugin_sources.json", APP_VERSION)
 core_updater = CoreUpdater(BASE_DIR, RACKDASH_GITHUB, backup_manager)
+official_plugin_updater = OfficialPluginUpdater(
+    BASE_DIR / "plugins",
+    BASE_DIR / "data" / "plugin_backups",
+    RACKDASH_GITHUB,
+    branch="main",
+)
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -201,6 +208,8 @@ def api_health():
             "accent": plugin.accent,
             "enabled": plugins.is_enabled(plugin.id),
             "installer_managed": bool(plugin_installer.source_for(plugin.id)),
+            "official": plugin.official,
+            "source_path": plugin.source_path,
             "config_fields": schema_values(BASE_DIR / "config.env", plugin.config_schema),
             "health": runtime,
             "display": plugins.display_settings(plugin.id),
@@ -240,7 +249,20 @@ def api_health_plugin_update(plugin_id: str):
         return jsonify({"ok": False, "error": "Unknown plugin"}), 404
 
     try:
-        result = github_update_status(plugin.github_url, plugin.plugin_version)
+        if plugin.official:
+            if not plugin.source_path:
+                return jsonify({
+                    "ok": False,
+                    "plugin": plugin_id,
+                    "error": "Official plugin is missing PLUGIN_SOURCE_PATH",
+                }), 200
+            result = official_plugin_updater.check(
+                plugin.id,
+                plugin.source_path,
+                plugin.plugin_version,
+            )
+        else:
+            result = github_update_status(plugin.github_url, plugin.plugin_version)
         return jsonify({"ok": True, "plugin": plugin_id, "update": result})
     except Exception:
         app.logger.exception("Update check failed for plugin %s", plugin_id)
@@ -302,6 +324,23 @@ def api_health_plugins_install():
     try:return jsonify({"ok":True,"plugin":plugin_installer.install_from_github(url)})
     except Exception as exc:
         app.logger.exception("Plugin install failed");return jsonify({"ok":False,"error":str(exc)}),200
+
+
+@app.post("/api/health/plugin/<plugin_id>/update-official")
+def api_health_plugin_update_official(plugin_id:str):
+    if not _require_admin(): return _admin_denied()
+    plugin=plugins.get(plugin_id)
+    if plugin is None:return jsonify({"ok":False,"error":"Unknown plugin"}),404
+    if not plugin.official:return jsonify({"ok":False,"error":"Plugin is not an official RackDash plugin"}),400
+    if not plugin.source_path:return jsonify({"ok":False,"error":"Official plugin has no source path"}),400
+    try:
+        return jsonify({
+            "ok":True,
+            "plugin":official_plugin_updater.update(plugin.id,plugin.source_path),
+        })
+    except Exception as exc:
+        app.logger.exception("Official plugin update failed for %s",plugin_id)
+        return jsonify({"ok":False,"error":str(exc)}),200
 
 @app.post("/api/health/plugin/<plugin_id>/update-managed")
 def api_health_plugin_update_managed(plugin_id:str):
