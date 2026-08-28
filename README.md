@@ -131,7 +131,6 @@ RACKDASH_HOST=0.0.0.0
 
 only when you intentionally want the dashboard accessible to other LAN devices.
 
-Never commit `config.env`.
 
 ## License
 
