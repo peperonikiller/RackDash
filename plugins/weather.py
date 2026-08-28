@@ -6,6 +6,9 @@ from _shared import TTLCache
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
 PLUGIN_VERSION = "1.0.0"
+PLUGIN_MIN_RACKDASH = "2.0.0"
+PLUGIN_MAX_RACKDASH = ""
+PLUGIN_CAPABILITIES = ['network']
 PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 30
 PLUGIN_REFRESH_SECONDS = 300

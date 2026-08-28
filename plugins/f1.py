@@ -10,6 +10,9 @@ from _shared import TTLCache
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
 PLUGIN_VERSION = "1.0.0"
+PLUGIN_MIN_RACKDASH = "2.0.0"
+PLUGIN_MAX_RACKDASH = ""
+PLUGIN_CAPABILITIES = ['network', 'custom_routes']
 PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 40
 PLUGIN_REFRESH_SECONDS = 300

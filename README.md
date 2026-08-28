@@ -342,3 +342,132 @@ back to the newest tag if no releases exist. The check is manual; opening Admin
 does not automatically query GitHub.
 
 Admin is permanently excluded from automatic dashboard rotation.
+
+
+# RackDash 2.0 platform release
+
+RackDash 2.0 focuses on making the core application a stable platform before
+expanding the bundled plugin catalog.
+
+## Admin authentication
+
+Dashboard viewing remains available on the rack screen while write operations
+can be protected with an Admin password/PIN. Protected actions include config
+changes, restart, RackDash update, plugin install/update/uninstall/rollback,
+backup/restore, plugin display settings, and I2C controls.
+
+Authentication uses a server-side scrypt password hash. The password itself is
+never written to `config.env`.
+
+## Save + Restart
+
+Core and plugin settings dialogs include both **Save** and **Save + Restart**.
+The latter writes the configuration and asks the systemd-managed RackDash
+process to restart immediately.
+
+## Backup and restore
+
+Admin can download a RackDash backup containing persistent configuration,
+plugin state, installer metadata, Admin authentication state, I2C artwork, and
+top-level plugin files. A backup ZIP can be restored from the Admin page.
+
+## Plugin rollback
+
+Installer-managed plugins are backed up before update, uninstall, and rollback.
+Recent backups are exposed in Admin and can be restored with the Rollback
+control.
+
+## Plugin compatibility and capabilities
+
+Plugins may declare:
+
+```python
+PLUGIN_MIN_RACKDASH = "2.0.0"
+PLUGIN_MAX_RACKDASH = ""
+PLUGIN_CAPABILITIES = ["network", "i2c", "custom_routes"]
+```
+
+GitHub plugin manifests support equivalent fields:
+
+```json
+{
+  "id": "my_plugin",
+  "name": "My Plugin",
+  "version": "1.0.0",
+  "entry": "my_plugin.py",
+  "min_rackdash": "2.0.0",
+  "max_rackdash": "",
+  "capabilities": ["network"]
+}
+```
+
+RackDash previews capabilities before installation and blocks versions that are
+incompatible with the running RackDash version.
+
+## Per-plugin presentation controls
+
+Admin can override each plugin's:
+
+- enabled state
+- whether it has a visible tab
+- whether it participates in auto rotation
+- tab order
+- backend refresh interval
+- amount of time it remains on screen during auto rotation
+
+The Admin tab itself is permanently manual-only and never participates in
+automatic rotation.
+
+## RackDash self-update
+
+Admin can update RackDash from the latest GitHub Release. RackDash expects the
+release to contain a ZIP asset with `RackDash` in the filename. Before replacing
+core files it creates a persistent backup. `config.env`, `data/`, the virtual
+environment, Git metadata, and third-party plugin files are preserved.
+
+After applying the release RackDash exits and the provided systemd service
+starts it again.
+
+## Logs and diagnostics
+
+Admin exposes a rotating RackDash log plus hardware/runtime diagnostics:
+
+- Python version
+- OS/platform and architecture
+- hostname
+- systemd service state
+- Chromium process detection
+- I2C bus scan
+- available disk space
+- browser viewport
+- device pixel ratio
+- browser user agent
+
+The log viewer can optionally filter by plugin/name.
+
+## Display and accessibility options
+
+Core Settings include:
+
+- Dark, OLED Black, and Blue Steel themes
+- global UI scale
+- safe-area / overscan padding
+- larger touchscreen controls
+- burn-in pixel shifting
+- idle dimming
+- Developer Mode
+
+Left and Right arrow keys navigate normal dashboard tabs. Touch swiping remains
+supported.
+
+## Developer tools
+
+Admin provides raw plugin metadata/data inspection and a single-plugin reload
+button. Reloading refreshes the Python plugin module and `get_data()` logic
+without restarting RackDash. Changes to custom Flask routes still require a
+full RackDash restart.
+
+## Secret handling
+
+Fields declared as `password`, `secret`, or `token` are masked in the browser.
+Submitting the unchanged `********` placeholder preserves the existing value.

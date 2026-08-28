@@ -10,26 +10,38 @@ from pathlib import Path
 
 import psutil
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request, session, send_file
 
 from plugin_manager import PluginManager
 from health import github_update_status
 from plugin_installer import PluginInstaller
 from config_manager import ensure_defaults, schema_values, update_schema_values, parse_env
 from i2c_display import I2CDisplayManager, I2C_CONFIG, DISPLAY_TYPES
+from admin_security import AdminSecurity
+from backup_manager import BackupManager
+from core_updater import CoreUpdater
+from admin_diagnostics import diagnostics, tail_file
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "1.6.0"
+APP_VERSION = "2.0.0"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
 CORE_CONFIG = [
     {"key":"RACKDASH_HOST","label":"Listen Host","type":"text","default":"127.0.0.1","help":"Use 0.0.0.0 only if LAN access is intended."},
-    {"key":"RACKDASH_PORT","label":"Port","type":"number","default":"8080"},
-    {"key":"ROTATE_SECONDS","label":"Auto Rotation Seconds","type":"number","default":"12"},
+    {"key":"RACKDASH_PORT","label":"Port","type":"number","default":"8080","min":1,"max":65535},
+    {"key":"ROTATE_SECONDS","label":"Default Rotation Seconds","type":"number","default":"12","min":3,"max":300},
+    {"key":"RACKDASH_THEME","label":"Theme","type":"select","default":"dark","options":[{"value":"dark","label":"Dark"},{"value":"black","label":"OLED Black"},{"value":"blue","label":"Blue Steel"}]},
+    {"key":"RACKDASH_UI_SCALE","label":"UI Scale","type":"number","default":"1.0","min":0.7,"max":1.5,"step":0.05},
+    {"key":"RACKDASH_SAFE_AREA","label":"Safe Area / Overscan px","type":"number","default":"0","min":0,"max":80},
+    {"key":"RACKDASH_LARGE_TOUCH","label":"Large Touch Targets","type":"checkbox","default":"false"},
+    {"key":"RACKDASH_BURN_IN","label":"Burn-in Protection","type":"checkbox","default":"false"},
+    {"key":"RACKDASH_BURN_IN_SECONDS","label":"Pixel Shift Interval","type":"number","default":"90","min":30,"max":3600},
+    {"key":"RACKDASH_DIM_MINUTES","label":"Dim After Minutes","type":"number","default":"0","min":0,"max":1440,"help":"0 disables idle dimming."},
+    {"key":"RACKDASH_DEVELOPER_MODE","label":"Developer Mode","type":"checkbox","default":"false"},
 ]
 
 def discover_config_schemas(plugin_dir: Path):
@@ -49,11 +61,26 @@ def discover_config_schemas(plugin_dir: Path):
     return rows
 
 app = Flask(__name__)
+admin_security = AdminSecurity(BASE_DIR / "data" / "admin_auth.json")
+app.secret_key = admin_security.secret_key
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict")
+backup_manager = BackupManager(BASE_DIR)
 ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
 load_dotenv(BASE_DIR / "config.env", override=True)
 plugins = PluginManager(app=app, plugin_dir=BASE_DIR / "plugins", state_file=BASE_DIR / "data" / "plugin_state.json")
 plugins.load_all()
-plugin_installer = PluginInstaller(BASE_DIR / "plugins", BASE_DIR / "data" / "plugin_sources.json")
+plugin_installer = PluginInstaller(BASE_DIR / "plugins", BASE_DIR / "data" / "plugin_sources.json", APP_VERSION)
+core_updater = CoreUpdater(BASE_DIR, RACKDASH_GITHUB, backup_manager)
+
+import logging
+from logging.handlers import RotatingFileHandler
+LOG_PATH = BASE_DIR / "data" / "rackdash.log"
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+_file_handler.setLevel(logging.INFO)
+app.logger.addHandler(_file_handler)
+app.logger.setLevel(logging.INFO)
 
 
 def local_ip() -> str:
@@ -115,6 +142,16 @@ def index():
         plugins=plugins.public_plugins(),
         plugin_css=plugins.combined_css(),
         plugin_js=plugins.combined_js(),
+        ui_config={
+            "theme": os.getenv("RACKDASH_THEME","dark"),
+            "scale": os.getenv("RACKDASH_UI_SCALE","1.0"),
+            "safe_area": os.getenv("RACKDASH_SAFE_AREA","0"),
+            "large_touch": os.getenv("RACKDASH_LARGE_TOUCH","false").lower() in ("1","true","yes","on"),
+            "burn_in": os.getenv("RACKDASH_BURN_IN","false").lower() in ("1","true","yes","on"),
+            "burn_in_seconds": int(os.getenv("RACKDASH_BURN_IN_SECONDS","90") or 90),
+            "dim_minutes": int(os.getenv("RACKDASH_DIM_MINUTES","0") or 0),
+            "developer_mode": os.getenv("RACKDASH_DEVELOPER_MODE","false").lower() in ("1","true","yes","on"),
+        },
     )
 
 
@@ -133,6 +170,8 @@ def api_plugin(plugin_id: str):
     plugin = plugins.get(plugin_id)
     if plugin is None:
         return jsonify({"ok": False, "error": "Unknown plugin"}), 404
+    if not plugins.is_enabled(plugin_id):
+        return jsonify({"ok": False, "error": "Plugin disabled"}), 403
 
     try:
         return jsonify({"ok": True, "data": plugin.get_data()})
@@ -164,10 +203,18 @@ def api_health():
             "installer_managed": bool(plugin_installer.source_for(plugin.id)),
             "config_fields": schema_values(BASE_DIR / "config.env", plugin.config_schema),
             "health": runtime,
+            "display": plugins.display_settings(plugin.id),
+            "capabilities": plugin.capabilities,
+            "min_rackdash": plugin.min_rackdash,
+            "max_rackdash": plugin.max_rackdash,
+            "backups": plugin_installer.backups(plugin.id)[:5],
         })
 
     return jsonify({
         "system": system_status(),
+        "admin_auth": admin_security.status(),
+        "diagnostics": diagnostics(BASE_DIR),
+        "backups": backup_manager.list()[:10],
         "i2c": i2c_manager.status(),
         "plugins": rows,
         "app": {
@@ -203,8 +250,16 @@ def api_health_plugin_update(plugin_id: str):
             "error": "Unable to check GitHub for updates",
         }), 200
 
+
+def _admin_denied():
+    return jsonify({"ok":False,"error":"Admin authentication required","auth_required":True}),401
+
+def _require_admin():
+    return admin_security.require()
+
 @app.post("/api/health/plugin/<plugin_id>/enabled")
 def api_health_plugin_enabled(plugin_id: str):
+    if not _require_admin(): return _admin_denied()
     from flask import request
     plugin=plugins.get(plugin_id)
     if plugin is None:return jsonify({"ok":False,"error":"Unknown plugin"}),404
@@ -214,20 +269,33 @@ def api_health_plugin_enabled(plugin_id: str):
 
 @app.post("/api/health/core/config")
 def api_health_core_config():
-    from flask import request
-    update_schema_values(BASE_DIR/"config.env",CORE_CONFIG,(request.get_json(silent=True) or {}).get("values") or {})
-    return jsonify({"ok":True,"restart_required":True})
+    if not _require_admin(): return _admin_denied()
+    payload=request.get_json(silent=True) or {}
+    update_schema_values(BASE_DIR/"config.env",CORE_CONFIG,payload.get("values") or {})
+    if payload.get("restart"):
+        import threading
+        def _restart():
+            time.sleep(.8);os._exit(3)
+        threading.Thread(target=_restart,daemon=True).start()
+    return jsonify({"ok":True,"restart_required":not bool(payload.get("restart"))})
 
 @app.post("/api/health/plugin/<plugin_id>/config")
 def api_health_plugin_config(plugin_id:str):
-    from flask import request
+    if not _require_admin(): return _admin_denied()
     plugin=plugins.get(plugin_id)
     if plugin is None:return jsonify({"ok":False,"error":"Unknown plugin"}),404
-    update_schema_values(BASE_DIR/"config.env",plugin.config_schema,(request.get_json(silent=True) or {}).get("values") or {})
-    return jsonify({"ok":True,"restart_required":True})
+    payload=request.get_json(silent=True) or {}
+    update_schema_values(BASE_DIR/"config.env",plugin.config_schema,payload.get("values") or {})
+    if payload.get("restart"):
+        import threading
+        def _restart():
+            time.sleep(.8);os._exit(3)
+        threading.Thread(target=_restart,daemon=True).start()
+    return jsonify({"ok":True,"restart_required":not bool(payload.get("restart"))})
 
 @app.post("/api/health/plugins/install")
 def api_health_plugins_install():
+    if not _require_admin(): return _admin_denied()
     from flask import request
     url=str((request.get_json(silent=True) or {}).get("github_url","")).strip()
     if not url:return jsonify({"ok":False,"error":"GitHub repository URL is required"}),400
@@ -237,6 +305,7 @@ def api_health_plugins_install():
 
 @app.post("/api/health/plugin/<plugin_id>/update-managed")
 def api_health_plugin_update_managed(plugin_id:str):
+    if not _require_admin(): return _admin_denied()
     source=plugin_installer.source_for(plugin_id)
     if not source:return jsonify({"ok":False,"error":"Plugin is not installer-managed"}),400
     try:return jsonify({"ok":True,"plugin":plugin_installer.install_from_github(source["github_url"])})
@@ -245,6 +314,7 @@ def api_health_plugin_update_managed(plugin_id:str):
 
 @app.post("/api/health/plugin/<plugin_id>/uninstall")
 def api_health_plugin_uninstall(plugin_id:str):
+    if not _require_admin(): return _admin_denied()
     try:return jsonify({"ok":True,"plugin":plugin_installer.uninstall(plugin_id)})
     except Exception as exc:
         app.logger.exception("Plugin uninstall failed");return jsonify({"ok":False,"error":str(exc)}),200
@@ -310,6 +380,7 @@ def api_admin_i2c():
 
 @app.post("/api/admin/i2c")
 def api_admin_i2c_save():
+    if not _require_admin(): return _admin_denied()
     from flask import request
     payload=request.get_json(silent=True) or {}
     try:
@@ -322,6 +393,7 @@ def api_admin_i2c_save():
 
 @app.post("/api/admin/i2c/test")
 def api_admin_i2c_test():
+    if not _require_admin(): return _admin_denied()
     try:
         return jsonify({"ok":True,"status":i2c_manager.test()})
     except Exception as exc:
@@ -331,6 +403,7 @@ def api_admin_i2c_test():
 
 @app.post("/api/admin/i2c/icon")
 def api_admin_i2c_icon():
+    if not _require_admin(): return _admin_denied()
     from flask import request
     upload=request.files.get("icon")
     if upload is None or not upload.filename:
@@ -344,6 +417,7 @@ def api_admin_i2c_icon():
 
 @app.post("/api/health/restart")
 def api_health_restart():
+    if not _require_admin(): return _admin_denied()
     import os
     import threading
     import time
@@ -354,6 +428,108 @@ def api_health_restart():
 
     threading.Thread(target=_restart, daemon=True).start()
     return jsonify({"ok": True, "message": "RackDash is restarting"})
+
+@app.get("/api/admin/auth")
+def api_admin_auth_status():
+    return jsonify({"ok":True,**admin_security.status()})
+
+@app.post("/api/admin/auth/login")
+def api_admin_auth_login():
+    password=str((request.get_json(silent=True) or {}).get("password",""))
+    if admin_security.login(password):return jsonify({"ok":True,**admin_security.status()})
+    return jsonify({"ok":False,"error":"Invalid admin password/PIN"}),401
+
+@app.post("/api/admin/auth/logout")
+def api_admin_auth_logout():
+    admin_security.logout();return jsonify({"ok":True})
+
+@app.post("/api/admin/auth/config")
+def api_admin_auth_config():
+    if admin_security.enabled and not admin_security.is_authenticated():return _admin_denied()
+    payload=request.get_json(silent=True) or {}
+    try:
+        if payload.get("password"):
+            admin_security.set_password(str(payload["password"]));session["rackdash_admin"]=True
+        if "enabled" in payload:admin_security.set_enabled(bool(payload["enabled"]))
+        return jsonify({"ok":True,**admin_security.status()})
+    except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.post("/api/admin/plugin/<plugin_id>/display")
+def api_admin_plugin_display(plugin_id):
+    if not _require_admin():return _admin_denied()
+    try:return jsonify({"ok":True,"display":plugins.update_display_settings(plugin_id,request.get_json(silent=True) or {}),"reload_required":True})
+    except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.get("/api/admin/plugins/preview")
+def api_admin_plugins_preview():
+    if not _require_admin():return _admin_denied()
+    try:return jsonify({"ok":True,"plugin":plugin_installer.preview(request.args.get("github_url",""))})
+    except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.get("/api/admin/plugin/<plugin_id>/backups")
+def api_admin_plugin_backups(plugin_id):
+    if not _require_admin():return _admin_denied()
+    return jsonify({"ok":True,"backups":plugin_installer.backups(plugin_id)})
+
+@app.post("/api/admin/plugin/<plugin_id>/rollback")
+def api_admin_plugin_rollback(plugin_id):
+    if not _require_admin():return _admin_denied()
+    try:return jsonify({"ok":True,"plugin":plugin_installer.rollback(plugin_id,str((request.get_json(silent=True) or {}).get("backup","")))})
+    except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.get("/api/admin/backup")
+def api_admin_backup_create():
+    if not _require_admin():return _admin_denied()
+    path=backup_manager.create("manual");return send_file(path,as_attachment=True,download_name=path.name)
+
+@app.post("/api/admin/restore")
+def api_admin_restore():
+    if not _require_admin():return _admin_denied()
+    upload=request.files.get("backup")
+    if not upload:return jsonify({"ok":False,"error":"Choose a RackDash backup zip."}),400
+    try:return jsonify({"ok":True,**backup_manager.restore_upload(upload.stream)})
+    except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.get("/api/admin/logs")
+def api_admin_logs():
+    if not _require_admin():return _admin_denied()
+    rows=tail_file(LOG_PATH,request.args.get("lines",200,type=int));plugin=request.args.get("plugin","").lower().strip()
+    if plugin:rows=[row for row in rows if plugin in row.lower()]
+    return jsonify({"ok":True,"lines":rows})
+
+@app.get("/api/admin/diagnostics")
+def api_admin_diagnostics():
+    return jsonify({"ok":True,"server":diagnostics(BASE_DIR)})
+
+@app.post("/api/admin/plugin/<plugin_id>/reload")
+def api_admin_plugin_reload(plugin_id):
+    if not _require_admin():return _admin_denied()
+    try:return jsonify({"ok":True,"plugin":plugins.reload_plugin(plugin_id)})
+    except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.get("/api/admin/plugin/<plugin_id>/debug")
+def api_admin_plugin_debug(plugin_id):
+    if not _require_admin():return _admin_denied()
+    plugin=plugins.get(plugin_id)
+    if not plugin:return jsonify({"ok":False,"error":"Unknown plugin"}),404
+    raw=None;error=None
+    if request.args.get("fetch")=="1":
+        try:raw=plugin.get_data()
+        except Exception as exc:error=str(exc)
+    return jsonify({"ok":True,"metadata":{"id":plugin.id,"name":plugin.name,"version":plugin.plugin_version,"github":plugin.github_url,"capabilities":plugin.capabilities,"min_rackdash":plugin.min_rackdash,"max_rackdash":plugin.max_rackdash,"display":plugins.display_settings(plugin.id)},"data":raw,"error":error})
+
+@app.post("/api/admin/core/update")
+def api_admin_core_update():
+    if not _require_admin():return _admin_denied()
+    try:
+        result=core_updater.apply_latest()
+        import threading
+        def _exit():
+            time.sleep(1.0);os._exit(3)
+        threading.Thread(target=_exit,daemon=True).start()
+        return jsonify({"ok":True,"update":result})
+    except Exception as exc:
+        app.logger.exception("Core update failed");return jsonify({"ok":False,"error":str(exc)}),200
 
 
 if __name__ == "__main__":

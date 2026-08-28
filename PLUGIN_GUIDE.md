@@ -255,3 +255,44 @@ RackDash resolves relative icon paths from the plugin file's directory, scales
 them down as needed, and converts them to the target display's monochrome image
 format. The display manager handles rotation between System and plugin frames;
 plugin authors should not create their own I2C connection or display thread.
+
+
+# RackDash 2.0 plugin platform
+
+## Compatibility metadata
+
+Recommended metadata:
+
+```python
+PLUGIN_MIN_RACKDASH = "2.0.0"
+PLUGIN_MAX_RACKDASH = ""
+PLUGIN_CAPABILITIES = ["network"]
+```
+
+Common capability declarations include:
+
+- `network`
+- `i2c`
+- `custom_routes`
+
+Capabilities are informational permission declarations shown to the user before
+GitHub installation.
+
+## Runtime presentation overrides
+
+Users can override tab order, refresh interval, auto-rotation participation,
+rotation duration, and tab visibility without editing plugin source. Plugin
+authors should therefore treat `PLUGIN_ORDER`, `PLUGIN_REFRESH_SECONDS`, and
+the core rotation interval as defaults rather than fixed values.
+
+## Debugging
+
+Developer/Admin tools can invoke `get_data()` and inspect its JSON result. A
+single plugin module can also be reloaded at runtime. If a plugin registers
+custom Flask routes, changing those routes still requires a process restart.
+
+## Secrets
+
+Configuration fields using `password`, `token`, or `secret` are masked by
+RackDash when sent to the browser. Plugin authors should continue reading them
+with `os.getenv()` and should never return secret values from `get_data()`.

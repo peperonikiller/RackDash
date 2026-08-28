@@ -3,9 +3,9 @@
 
   const cfg = window.RACKDASH_CONFIG || {plugins:[], rotateSeconds:12};
   const pluginMeta = cfg.plugins || [];
-  // Admin is intentionally manual-only and is not part of this rotation list.
-  const pluginIds = pluginMeta.map(p => p.id);
   const pluginById = Object.fromEntries(pluginMeta.map(p => [p.id,p]));
+  const tabPluginIds = pluginMeta.map(p => p.id);
+  const pluginIds = pluginMeta.filter(p => p.auto_rotate !== false).map(p => p.id);
 
   window.RackDashPlugins = window.RackDashPlugins || {};
 
@@ -68,8 +68,8 @@
   let reconnectTimer=null;
   let reconnectCountdownTimer=null;
 
-  const pages = [...document.querySelectorAll(".plugin-page")];
-  const tabs = [...document.querySelectorAll(".tab")];
+  const pages = [...document.querySelectorAll(".plugin-page[data-plugin]")];
+  const tabs = [...document.querySelectorAll(".tab[data-plugin]")];
   const rotateBox = document.getElementById("autoRotate");
   const healthTab = document.querySelector('[data-health-tab="true"]');
   const healthPage = document.getElementById("health-page");
@@ -168,7 +168,7 @@
       t.setAttribute("aria-selected",active?"true":"false");
     });
 
-    const id=pluginIds[activeIndex];
+    const id=tabPluginIds[activeIndex];
     const meta=pluginById[id];
     if(meta)document.documentElement.style.setProperty("--accent",meta.accent||"#dce8ee");
     tabs[activeIndex]?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
@@ -254,6 +254,50 @@
     if(panel)panel.style.opacity=document.getElementById("i2cMode")?.value==="icon"?"1":".58";
   }
 
+
+  async function adminFetch(url,options={}){
+    const r=await fetch(url,options);
+    if(r.status===401){openAdminAuth();throw new Error("Admin authentication required");}
+    return r;
+  }
+
+  function renderAdminSecurity(auth){
+    const box=document.getElementById("adminSecurityStatus");
+    if(!box)return;
+    box.innerHTML=[
+      `Protection ${auth?.enabled?"ENABLED":"DISABLED"}`,
+      `Password ${auth?.configured?"SET":"NOT SET"}`,
+      `Session ${auth?.authenticated?"UNLOCKED":"LOCKED"}`
+    ].map(x=>`<span>${RackDash.escape(x)}</span>`).join("");
+    const check=document.getElementById("adminAuthEnabled");
+    if(check)check.checked=!!auth?.enabled;
+  }
+  function openAdminAuth(){document.getElementById("adminAuthModal").hidden=false;document.getElementById("adminAuthNote").textContent="";}
+  function closeAdminAuth(){document.getElementById("adminAuthModal").hidden=true;}
+  document.querySelectorAll("[data-close-admin-auth]").forEach(el=>el.addEventListener("click",closeAdminAuth));
+  document.getElementById("adminAuthButton")?.addEventListener("click",openAdminAuth);
+  document.getElementById("adminAuthLogin")?.addEventListener("click",async()=>{
+    const password=document.getElementById("adminPassword").value,note=document.getElementById("adminAuthNote");
+    try{const r=await fetch("/api/admin/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Login failed");renderAdminSecurity(x);note.textContent="Admin unlocked.";setTimeout(closeAdminAuth,500);}catch(e){note.textContent=e.message;}
+  });
+  document.getElementById("adminAuthSave")?.addEventListener("click",async()=>{
+    const password=document.getElementById("adminPassword").value,enabled=document.getElementById("adminAuthEnabled").checked,note=document.getElementById("adminAuthNote");
+    try{const r=await fetch("/api/admin/auth/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password,enabled})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Save failed");renderAdminSecurity(x);note.textContent="Security settings saved.";}catch(e){note.textContent=e.message;}
+  });
+  document.getElementById("adminLogoutButton")?.addEventListener("click",async()=>{await fetch("/api/admin/auth/logout",{method:"POST"});await loadHealth();});
+
+  async function rollbackPlugin(id){
+    const p=(window.__RackDashHealth?.plugins||[]).find(x=>x.id===id),rows=p?.backups||[];
+    if(!rows.length){alert("No plugin backups available.");return;}
+    const choice=prompt(`Choose backup number:\n${rows.map((b,i)=>`${i+1}: ${b.name}`).join("\n")}`,"1");
+    const selected=rows[Number(choice)-1];if(!selected)return;
+    try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/rollback`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({backup:selected.name})});const x=await r.json();alert(x.ok?"Rollback installed. Restart RackDash.":x.error);}catch(e){}
+  }
+
+  async function debugPlugin(id){
+    try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/debug?fetch=1`);const x=await r.json();document.getElementById("platformOutput").textContent=JSON.stringify(x,null,2);}catch(e){}
+  }
+
   async function loadHealth(){
     if(!healthPage)return;
     try{
@@ -293,11 +337,40 @@
             ${p.github_url?`<a href="${RackDash.escape(p.github_url)}" target="_blank" rel="noopener">GITHUB</a>`:""}
             <button type="button" data-check-update="${RackDash.escape(p.id)}" ${p.github_url?"":"disabled"}>CHECK</button>
             ${p.installer_managed?`<button type="button" data-managed-update="${RackDash.escape(p.id)}">UPDATE</button><button type="button" data-uninstall-plugin="${RackDash.escape(p.id)}">UNINSTALL</button>`:""}
+            ${(p.backups||[]).length?`<button type="button" data-plugin-rollback="${RackDash.escape(p.id)}">ROLLBACK</button>`:""}
+            <button type="button" data-plugin-debug="${RackDash.escape(p.id)}">DEBUG</button>
+            <button type="button" data-plugin-reload="${RackDash.escape(p.id)}">RELOAD</button>
           </div>
+          <div class="plugin-display-controls">
+            <label>ORDER <input type="number" data-display-order="${RackDash.escape(p.id)}" value="${p.display?.order??100}"></label>
+            <label>REFRESH <input type="number" data-display-refresh="${RackDash.escape(p.id)}" value="${p.display?.refresh_seconds??p.refresh_seconds??10}"></label>
+            <label>ROTATE <input type="number" data-display-duration="${RackDash.escape(p.id)}" value="${p.display?.rotation_seconds??12}"></label>
+            <label><input type="checkbox" data-display-tab="${RackDash.escape(p.id)}" ${p.display?.show_tab!==false?"checked":""}> TAB</label>
+            <label><input type="checkbox" data-display-auto="${RackDash.escape(p.id)}" ${p.display?.auto_rotate!==false?"checked":""}> AUTO</label>
+            <button type="button" data-save-display="${RackDash.escape(p.id)}">SAVE DISPLAY</button>
+          </div>
+          <div>${(p.capabilities||[]).map(c=>`<span class="capability-chip">${RackDash.escape(c)}</span>`).join("")}</div>
         </div>`).join("");
 
       list.querySelectorAll("[data-plugin-settings]").forEach(btn=>btn.addEventListener("click",()=>{const p=(window.__RackDashHealth?.plugins||[]).find(x=>x.id===btn.dataset.pluginSettings);if(p)openSettings(`${p.name} Settings`,p.config_fields||[],`/api/health/plugin/${encodeURIComponent(p.id)}/config`);}));
-      list.querySelectorAll("[data-plugin-enabled]").forEach(toggle=>toggle.addEventListener("change",async()=>{await fetch(`/api/health/plugin/${encodeURIComponent(toggle.dataset.pluginEnabled)}/enabled`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:toggle.checked})});const st=toggle.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st){st.textContent="Reload page to apply visibility";st.className="health-update-status ahead";}}));
+      list.querySelectorAll("[data-plugin-enabled]").forEach(toggle=>toggle.addEventListener("change",async()=>{await adminFetch(`/api/health/plugin/${encodeURIComponent(toggle.dataset.pluginEnabled)}/enabled`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:toggle.checked})});const st=toggle.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st){st.textContent="Reload page to apply visibility";st.className="health-update-status ahead";}}));
+      list.querySelectorAll("[data-save-display]").forEach(btn=>btn.addEventListener("click",async()=>{
+        const id=btn.dataset.saveDisplay;
+        const payload={
+          order:Number(list.querySelector(`[data-display-order="${CSS.escape(id)}"]`)?.value||100),
+          refresh_seconds:Number(list.querySelector(`[data-display-refresh="${CSS.escape(id)}"]`)?.value||10),
+          rotation_seconds:Number(list.querySelector(`[data-display-duration="${CSS.escape(id)}"]`)?.value||12),
+          show_tab:!!list.querySelector(`[data-display-tab="${CSS.escape(id)}"]`)?.checked,
+          auto_rotate:!!list.querySelector(`[data-display-auto="${CSS.escape(id)}"]`)?.checked
+        };
+        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/display`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const x=await r.json();alert(x.ok?"Display settings saved. Reload RackDash to apply tab changes.":x.error);}catch(e){}
+      }));
+      list.querySelectorAll("[data-plugin-rollback]").forEach(btn=>btn.addEventListener("click",()=>rollbackPlugin(btn.dataset.pluginRollback)));
+      list.querySelectorAll("[data-plugin-debug]").forEach(btn=>btn.addEventListener("click",()=>debugPlugin(btn.dataset.pluginDebug)));
+      list.querySelectorAll("[data-plugin-reload]").forEach(btn=>btn.addEventListener("click",async()=>{
+        const id=btn.dataset.pluginReload;
+        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/reload`,{method:"POST"});const x=await r.json();alert(x.ok?`Reloaded ${x.plugin.name}. Custom route changes still require a RackDash restart.`:x.error);}catch(e){}
+      }));
       list.querySelectorAll("[data-plugin-test]").forEach(btn=>btn.addEventListener("click",async()=>{
         btn.disabled=true;
         const original=btn.textContent;
@@ -315,7 +388,7 @@
       list.querySelectorAll("[data-check-update]").forEach(btn=>{
         btn.addEventListener("click",()=>checkPluginUpdate(btn.dataset.checkUpdate,btn));
       });
-      renderI2C(data.i2c||{});
+      renderI2C(data.i2c||{});renderAdminSecurity(data.admin_auth||{});
       document.querySelector('[data-health="updates"]').textContent="0";
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
@@ -388,13 +461,34 @@
 
   document.getElementById("rackdashUpdateCheck")?.addEventListener("click",checkRackDashUpdate);
 
+
+  document.getElementById("backupDownload")?.addEventListener("click",async()=>{
+    try{const r=await adminFetch("/api/admin/backup");if(!r.ok)throw new Error("Backup failed");const blob=await r.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="rackdash-backup.zip";a.click();URL.revokeObjectURL(a.href);}catch(e){alert(e.message);}
+  });
+  document.getElementById("backupRestore")?.addEventListener("click",async()=>{
+    const file=document.getElementById("backupRestoreFile").files?.[0];if(!file){alert("Choose a backup zip.");return;}
+    if(!confirm("Restore this backup? Current config and plugins may be overwritten."))return;
+    const body=new FormData();body.append("backup",file);
+    try{const r=await adminFetch("/api/admin/restore",{method:"POST",body});const x=await r.json();alert(x.ok?"Backup restored. Restart RackDash.":x.error);}catch(e){}
+  });
+  document.getElementById("adminDiagnostics")?.addEventListener("click",async()=>{
+    const r=await fetch("/api/admin/diagnostics");const x=await r.json();x.browser={width:innerWidth,height:innerHeight,dpr:devicePixelRatio,userAgent:navigator.userAgent};document.getElementById("platformOutput").textContent=JSON.stringify(x,null,2);
+  });
+  document.getElementById("adminLogs")?.addEventListener("click",async()=>{
+    try{const r=await adminFetch("/api/admin/logs?lines=300");const x=await r.json();document.getElementById("platformOutput").textContent=(x.lines||[]).join("\\n");}catch(e){}
+  });
+  document.getElementById("rackdashUpdateNow")?.addEventListener("click",async()=>{
+    if(!confirm("Download and install the latest RackDash GitHub release? A backup will be created first."))return;
+    try{const r=await adminFetch("/api/admin/core/update",{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");document.getElementById("rackdashUpdateMessage").textContent=`Installed ${x.update.version}. Restarting...`;setTimeout(showConnectionLost,900);}catch(e){document.getElementById("rackdashUpdateMessage").textContent=e.message;}
+  });
+
   document.getElementById("healthRestart")?.addEventListener("click",async()=>{
     if(!confirm("Restart the RackDash server now?"))return;
     const button=document.getElementById("healthRestart");
     button.disabled=true;
     button.textContent="RESTARTING...";
     try{
-      const response=await fetch("/api/health/restart",{method:"POST"});
+      const response=await adminFetch("/api/health/restart",{method:"POST"});
       const result=await response.json();
       if(!result.ok)throw new Error(result.error||"Restart failed");
       setTimeout(showConnectionLost,900);
@@ -404,10 +498,23 @@
   });
 
   document.getElementById("healthCoreSettings")?.addEventListener("click",()=>openSettings("RackDash Core Settings",window.__RackDashHealth?.app?.config_fields||[],"/api/health/core/config"));
-  document.getElementById("settingsSave")?.addEventListener("click",async()=>{if(!settingsEndpoint)return;const values={};document.querySelectorAll("#settingsFields [data-setting-key]").forEach(el=>values[el.dataset.settingKey]=el.type==="checkbox"?(el.checked?"true":"false"):el.value);const note=document.getElementById("settingsNote");note.textContent="Saving...";try{const r=await fetch(settingsEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({values})});const result=await r.json();if(!result.ok)throw new Error(result.error||"Save failed");note.textContent="Saved. Restart RackDash to apply.";}catch(e){note.textContent=e.message;}});
+  async function saveSettings(restart=false){
+    if(!settingsEndpoint)return;
+    const values={};
+    document.querySelectorAll("#settingsFields [data-setting-key]").forEach(el=>values[el.dataset.settingKey]=el.type==="checkbox"?(el.checked?"true":"false"):el.value);
+    const note=document.getElementById("settingsNote");note.textContent=restart?"Saving and restarting...":"Saving...";
+    try{
+      const r=await adminFetch(settingsEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({values,restart})});
+      const result=await r.json();if(!result.ok)throw new Error(result.error||"Save failed");
+      note.textContent=restart?"Saved. RackDash is restarting...":"Saved. Restart RackDash to apply.";
+      if(restart)setTimeout(showConnectionLost,900);
+    }catch(e){note.textContent=e.message;}
+  }
+  document.getElementById("settingsSave")?.addEventListener("click",()=>saveSettings(false));
+  document.getElementById("settingsSaveRestart")?.addEventListener("click",()=>saveSettings(true));
 
-  async function managedPluginUpdate(id,button){button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st)st.textContent="Updating...";try{const r=await fetch(`/api/health/plugin/${encodeURIComponent(id)}/update-managed`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");if(st){st.textContent=`Installed ${x.plugin.version}. Restart RackDash.`;st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
-  async function uninstallPlugin(id,button){if(!confirm(`Uninstall ${id}? A backup will be kept.`))return;button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");try{const r=await fetch(`/api/health/plugin/${encodeURIComponent(id)}/uninstall`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Uninstall failed");if(st){st.textContent="Uninstalled. Restart RackDash.";st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
+  async function managedPluginUpdate(id,button){button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st)st.textContent="Updating...";try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/update-managed`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");if(st){st.textContent=`Installed ${x.plugin.version}. Restart RackDash.`;st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
+  async function uninstallPlugin(id,button){if(!confirm(`Uninstall ${id}? A backup will be kept.`))return;button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/uninstall`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Uninstall failed");if(st){st.textContent="Uninstalled. Restart RackDash.";st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
 
   function refreshHealthUpdateCount(){
     const count=document.querySelectorAll(".health-update-status.update_available").length;
@@ -432,7 +539,7 @@
 
   function scheduleNeighborFetch(){
     if(pluginIds.length<2)return;
-    const next=pluginIds[(activeIndex+1)%pluginIds.length];
+    const next=tabPluginIds[(activeIndex+1)%tabPluginIds.length];
     setTimeout(()=>fetchPlugin(next),350);
   }
 
@@ -453,11 +560,24 @@
     }
   }
 
+  function nextAutoIndex(){
+    if(!pluginIds.length)return activeIndex;
+    const currentId=tabPluginIds[activeIndex];
+    let pos=pluginIds.indexOf(currentId);
+    if(pos<0)pos=-1;
+    const nextId=pluginIds[(pos+1)%pluginIds.length];
+    const nextIndex=tabPluginIds.indexOf(nextId);
+    return nextIndex>=0?nextIndex:activeIndex;
+  }
+
   function tick(){
     document.getElementById("clock").textContent=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
     if(!showingHealth && autoRotate && pluginIds.length>1){
       rotateElapsed++;
-      if(rotateElapsed>=Math.max(3,Number(cfg.rotateSeconds||12)))show(activeIndex+1);
+      const activeId=tabPluginIds[activeIndex];
+      const activeMeta=pluginById[activeId]||{};
+      const rotateFor=Math.max(3,Number(activeMeta.rotation_seconds||cfg.rotateSeconds||12));
+      if(rotateElapsed>=rotateFor)show(nextAutoIndex());
     }
   }
 
@@ -478,7 +598,7 @@
       contrast:document.getElementById("i2cContrast").value
     };
     try{
-      const r=await fetch("/api/admin/i2c",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const r=await adminFetch("/api/admin/i2c",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const x=await r.json();if(!x.ok)throw new Error(x.error||"Save failed");
       renderI2C(x.status);message.textContent=x.status.connected?"Connected.":"Saved. Check I2C wiring/address if not connected.";
     }catch(e){message.textContent=e.message;}
@@ -487,7 +607,7 @@
   document.getElementById("i2cTest")?.addEventListener("click",async()=>{
     const message=document.getElementById("i2cMessage");message.textContent="Testing...";
     try{
-      const r=await fetch("/api/admin/i2c/test",{method:"POST"});const x=await r.json();
+      const r=await adminFetch("/api/admin/i2c/test",{method:"POST"});const x=await r.json();
       if(!x.ok)throw new Error(x.error||"Test failed");renderI2C(x.status);message.textContent="Test frame sent.";
     }catch(e){message.textContent=e.message;}
   });
@@ -499,13 +619,13 @@
     const body=new FormData();body.append("icon",file);
     message.textContent="Converting image...";
     try{
-      const r=await fetch("/api/admin/i2c/icon",{method:"POST",body});const x=await r.json();
+      const r=await adminFetch("/api/admin/i2c/icon",{method:"POST",body});const x=await r.json();
       if(!x.ok)throw new Error(x.error||"Upload failed");renderI2C(x.status);
       message.textContent=`Icon stored (${x.image.width}×${x.image.height}) and converted to monochrome.`;
     }catch(e){message.textContent=e.message;}
   });
 
-  document.getElementById("healthInstallButton")?.addEventListener("click",async()=>{const input=document.getElementById("healthInstallUrl"),button=document.getElementById("healthInstallButton"),status=document.getElementById("healthInstallStatus"),github_url=input.value.trim();if(!github_url){status.textContent="Enter a GitHub repository URL.";return;}button.disabled=true;status.textContent="Downloading manifest and validating plugin...";try{const r=await fetch("/api/health/plugins/install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({github_url})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Install failed");status.textContent=`Installed ${x.plugin.name} v${x.plugin.version}. Restart RackDash to load it.`;input.value="";}catch(e){status.textContent=e.message;}finally{button.disabled=false;}});
+  document.getElementById("healthInstallButton")?.addEventListener("click",async()=>{const input=document.getElementById("healthInstallUrl"),button=document.getElementById("healthInstallButton"),status=document.getElementById("healthInstallStatus"),github_url=input.value.trim();if(!github_url){status.textContent="Enter a GitHub repository URL.";return;}button.disabled=true;status.textContent="Downloading manifest and validating plugin...";try{const pr=await adminFetch(`/api/admin/plugins/preview?github_url=${encodeURIComponent(github_url)}`);const preview=await pr.json();if(!preview.ok)throw new Error(preview.error||"Preview failed");const caps=(preview.plugin.capabilities||[]).join(", ")||"none declared";if(!confirm(`Install ${preview.plugin.name} v${preview.plugin.version}?\nCapabilities: ${caps}`)){button.disabled=false;status.textContent="Install cancelled.";return;}const r=await adminFetch("/api/health/plugins/install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({github_url})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Install failed");status.textContent=`Installed ${x.plugin.name} v${x.plugin.version}. Restart RackDash to load it.`;input.value="";}catch(e){status.textContent=e.message;}finally{button.disabled=false;}});
   document.getElementById("healthCheckAll")?.addEventListener("click",async e=>{
     const button=e.currentTarget;
     button.disabled=true;
@@ -540,9 +660,40 @@
     if(!showingHealth && dt<700 && Math.abs(dx)>65 && Math.abs(dx)>Math.abs(dy)*1.25)show(activeIndex+(dx<0?1:-1),true);
   },{passive:true});
 
+
+  window.addEventListener("keydown",e=>{
+    if(showingHealth)return;
+    if(e.key==="ArrowRight")show(activeIndex+1,true);
+    if(e.key==="ArrowLeft")show(activeIndex-1,true);
+  });
+
   window.addEventListener("resize",()=>{
-    setLayoutClass();
-    const id=pluginIds[activeIndex];
+  
+  function applyUiPreferences(){
+    const ui=cfg.ui||{};
+    document.documentElement.dataset.theme=ui.theme||"dark";
+    if(ui.large_touch)document.documentElement.classList.add("large-touch");
+    const scale=Math.max(.7,Math.min(1.5,Number(ui.scale||1)));
+    document.documentElement.style.fontSize=`${scale*100}%`;
+    const safe=Math.max(0,Math.min(80,Number(ui.safe_area||0)));
+    document.body.style.padding=`${safe}px`;
+    if(safe)document.body.style.background="#000";
+    if(ui.burn_in){
+      const root=document.getElementById("rackdash");root.classList.add("burn-shift");
+      const shifts=[[0,0],[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,-1]];let i=0;
+      setInterval(()=>{i=(i+1)%shifts.length;root.style.setProperty("--burn-x",`${shifts[i][0]}px`);root.style.setProperty("--burn-y",`${shifts[i][1]}px`);},Math.max(30,Number(ui.burn_in_seconds||90))*1000);
+    }
+    const dimMinutes=Number(ui.dim_minutes||0);
+    if(dimMinutes>0){
+      let timer;const root=document.getElementById("rackdash");
+      const reset=()=>{root.classList.remove("idle-dim");clearTimeout(timer);timer=setTimeout(()=>root.classList.add("idle-dim"),dimMinutes*60000);};
+      ["pointerdown","keydown","touchstart"].forEach(ev=>window.addEventListener(ev,reset,{passive:true}));reset();
+    }
+  }
+
+  applyUiPreferences();
+  setLayoutClass();
+    const id=tabPluginIds[activeIndex];
     const renderer=window.RackDashPlugins[id];
     if(renderer&&typeof renderer.onResize==="function")renderer.onResize(pages[activeIndex]);
   });

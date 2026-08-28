@@ -2,5 +2,11 @@
   "id": "github_example",
   "name": "GitHub Example",
   "version": "1.0.0",
-  "entry": "sample_api_plugin.py"
+  "entry": "sample_api_plugin.py",
+  "description": "Example RackDash plugin",
+  "min_rackdash": "2.0.0",
+  "max_rackdash": "",
+  "capabilities": [
+    "network"
+  ]
 }

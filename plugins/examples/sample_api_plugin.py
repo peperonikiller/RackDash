@@ -21,6 +21,9 @@ PLUGIN_NAME = "GitHub Example"
 
 # OPTIONAL but recommended: semantic plugin version shown on Health.
 PLUGIN_VERSION = "1.0.0"
+PLUGIN_MIN_RACKDASH = "2.0.0"
+PLUGIN_MAX_RACKDASH = ""
+PLUGIN_CAPABILITIES = ["network"]
 
 # OPTIONAL: GitHub repository URL. If set, the Health page can compare
 # PLUGIN_VERSION with the repository's latest GitHub release/tag.

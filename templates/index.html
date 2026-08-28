@@ -81,6 +81,38 @@
 
 
 
+
+        <section class="surface admin-platform-panel">
+          <div class="admin-section-head">
+            <div>
+              <div class="section-label">ADMIN SECURITY</div>
+              <div class="muted">Protect configuration changes, restarts, updates, plugin management, backups, and hardware controls.</div>
+            </div>
+            <div class="health-head-actions">
+              <button class="health-button" id="adminAuthButton">AUTHENTICATION</button>
+              <button class="health-button" id="adminLogoutButton">LOG OUT</button>
+            </div>
+          </div>
+          <div class="admin-security-status" id="adminSecurityStatus"></div>
+        </section>
+
+        <section class="surface admin-platform-panel">
+          <div class="admin-section-head">
+            <div>
+              <div class="section-label">PLATFORM TOOLS</div>
+              <div class="muted">Backups, restore, logs, diagnostics, screen calibration, and developer tools.</div>
+            </div>
+          </div>
+          <div class="platform-tool-grid">
+            <button id="backupDownload">DOWNLOAD BACKUP</button>
+            <label class="file-tool">RESTORE BACKUP<input id="backupRestoreFile" type="file" accept=".zip"></label>
+            <button id="backupRestore">RESTORE SELECTED</button>
+            <button id="adminDiagnostics">DIAGNOSTICS</button>
+            <button id="adminLogs">VIEW LOGS</button>
+          </div>
+          <div class="platform-output" id="platformOutput"></div>
+        </section>
+
         <section class="surface rackdash-update-panel" id="rackdashUpdatePanel">
           <div class="admin-section-head">
             <div>
@@ -94,7 +126,7 @@
             <div><span>LATEST</span><strong data-rackdash-update="latest">NOT CHECKED</strong></div>
             <div><span>STATUS</span><strong data-rackdash-update="status">NOT CHECKED</strong></div>
           </div>
-          <div class="rackdash-update-message muted" id="rackdashUpdateMessage">
+          <div class="rackdash-update-actions"><button class="health-button" id="rackdashUpdateNow">UPDATE RACKDASH NOW</button></div><div class="rackdash-update-message muted" id="rackdashUpdateMessage">
             Update checks run only when you press CHECK RACKDASH UPDATE.
           </div>
         </section>
@@ -156,11 +188,32 @@
     </section>
   </main>
 
+
+    <div class="settings-modal" id="adminAuthModal" hidden>
+      <div class="settings-backdrop" data-close-admin-auth="true"></div>
+      <section class="settings-window">
+        <div class="settings-window-head">
+          <div><span class="eyebrow">ADMIN SECURITY</span><h2>Authentication</h2></div>
+          <button class="settings-close" data-close-admin-auth="true">×</button>
+        </div>
+        <div class="settings-fields">
+          <div class="settings-field"><label>PASSWORD / PIN</label><input id="adminPassword" type="password" autocomplete="current-password"><small>Used to unlock protected Admin actions.</small></div>
+          <div class="settings-field"><label>ENABLE PROTECTION</label><label class="settings-checkbox"><input id="adminAuthEnabled" type="checkbox"> Require login for Admin changes</label></div>
+        </div>
+        <div class="settings-note" id="adminAuthNote"></div>
+        <div class="settings-actions">
+          <button data-close-admin-auth="true">CANCEL</button>
+          <button class="primary" id="adminAuthLogin">LOGIN</button>
+          <button class="primary" id="adminAuthSave">SAVE SECURITY</button>
+        </div>
+      </section>
+    </div>
+
 <div class="settings-modal" id="settingsModal" hidden>
 <div class="settings-backdrop" data-close-settings="true"></div>
 <section class="settings-window"><div class="settings-window-head"><div><span class="eyebrow">RACKDASH SETTINGS</span><h2 id="settingsTitle">Settings</h2></div><button class="settings-close" data-close-settings="true">×</button></div>
 <div class="settings-fields" id="settingsFields"></div><div class="settings-note" id="settingsNote"></div>
-<div class="settings-actions"><button data-close-settings="true">CANCEL</button><button class="primary" id="settingsSave">SAVE</button></div></section></div>
+<div class="settings-actions"><button data-close-settings="true">CANCEL</button><button class="primary" id="settingsSave">SAVE</button><button class="primary" id="settingsSaveRestart">SAVE + RESTART</button></div></section></div>
   <footer class="footer">
     <span>PI <b data-system="ip">--</b></span>
     <span>UPTIME <b data-system="uptime">--</b></span>
@@ -176,7 +229,8 @@
 <script>
 window.RACKDASH_CONFIG = {
   rotateSeconds: {{ rotate_seconds|int }},
-  plugins: {{ plugins|tojson }}
+  plugins: {{ plugins|tojson }},
+  ui: {{ ui_config|tojson }}
 };
 window.RackDashPlugins = {};
 </script>
