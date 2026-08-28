@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/f1.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -375,14 +375,16 @@ PLUGIN_HTML = r'''
   </section>
 
   <section class="f1-copy surface">
-    <span class="eyebrow">NEXT GRAND PRIX</span>
-    <h1 data-role="name">Loading...</h1>
-    <div class="muted" data-role="race-location"></div>
-    <div class="countdown" data-role="countdown">--d --h --m</div>
-    <div class="chip-row">
-      <span data-role="round"></span>
-      <span data-role="date"></span>
-      <span data-role="time"></span>
+    <div class="f1-race-hero">
+      <span class="eyebrow">NEXT GRAND PRIX</span>
+      <h1 data-role="name">Loading...</h1>
+      <div class="muted" data-role="race-location"></div>
+      <div class="countdown" data-role="countdown">--d --h --m</div>
+      <div class="chip-row">
+        <span data-role="round"></span>
+        <span data-role="date"></span>
+        <span data-role="time"></span>
+      </div>
     </div>
     <div class="f1-session-block">
       <div class="section-label">RACE WEEKEND</div>
@@ -415,18 +417,19 @@ PLUGIN_HTML = r'''
 '''
 
 PLUGIN_CSS = r'''
-.plugin-f1 .f1-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.85fr);grid-template-areas:"track race" "drivers constructors" "recent headlines";gap:calc(var(--gap)*1.15);align-items:stretch}
-.plugin-f1 .track-surface{grid-area:track;display:grid;grid-template-rows:auto minmax(300px,62vh) auto;overflow:hidden;min-height:420px;position:relative}
+.plugin-f1 .f1-layout{display:grid;grid-template-columns:minmax(360px,.82fr) minmax(520px,1.18fr);grid-template-areas:"track race" "drivers constructors" "recent headlines";gap:calc(var(--gap)*1.15);align-items:stretch}
+.plugin-f1 .track-surface{grid-area:track;display:grid;grid-template-rows:auto minmax(380px,54vh) auto;overflow:hidden;min-height:470px;position:relative}
 .plugin-f1 .track-topline,.plugin-f1 .track-legend{display:flex;align-items:center;justify-content:space-between;gap:.7rem;position:relative;z-index:3}.plugin-f1 .track-location{font-size:.55rem;color:var(--muted);font-weight:750}
-.plugin-f1 .track-host{width:100%;height:100%;min-height:300px;display:flex;align-items:center;justify-content:center;position:relative}.plugin-f1 .track-host::before{content:"";position:absolute;inset:12% 14%;border-radius:50%;background:radial-gradient(circle,rgba(89,200,255,.09),transparent 68%);filter:blur(22px);animation:f1-track-breathe 4s ease-in-out infinite}
+.plugin-f1 .track-host{width:100%;height:100%;min-height:380px;display:flex;align-items:center;justify-content:center;position:relative}.plugin-f1 .track-host::before{content:"";position:absolute;inset:12% 14%;border-radius:50%;background:radial-gradient(circle,rgba(89,200,255,.09),transparent 68%);filter:blur(22px);animation:f1-track-breathe 4s ease-in-out infinite}
 .plugin-f1 .track-host svg{width:100%!important;height:100%!important;max-height:70vh;display:block;overflow:visible;position:relative;z-index:2;filter:drop-shadow(0 0 10px rgba(89,200,255,.12))}.plugin-f1 .track-host path,.plugin-f1 .track-host polyline,.plugin-f1 .track-host line{stroke:#d9e7ee!important;fill:none!important;stroke-width:6!important;stroke-linecap:round;stroke-linejoin:round;opacity:.92;filter:drop-shadow(0 0 4px rgba(89,200,255,.72))}.plugin-f1 .track-host .rackdash-racing-line{stroke:#62d5ff!important;stroke-width:2.4!important;stroke-dasharray:8 14;opacity:.95;filter:drop-shadow(0 0 5px rgba(89,200,255,.9));animation:f1-dash-flow 1.35s linear infinite}.plugin-f1 .track-host .rackdash-tracer{fill:#fff!important;stroke:#62d5ff!important;stroke-width:2!important;filter:drop-shadow(0 0 5px #62d5ff) drop-shadow(0 0 12px #62d5ff)}.plugin-f1 .track-host .rackdash-tracer-halo{fill:rgba(98,213,255,.18)!important;stroke:none!important;filter:drop-shadow(0 0 10px rgba(98,213,255,.75))}
 .plugin-f1 .track-legend{color:var(--muted);font-size:.5rem;font-weight:750}.plugin-f1 .track-glow{display:inline-block;width:.5rem;height:.5rem;border-radius:50%;background:#62d5ff;box-shadow:0 0 8px #62d5ff;vertical-align:-.05rem;margin-right:.25rem}@keyframes f1-dash-flow{to{stroke-dashoffset:-44}}@keyframes f1-track-breathe{0%,100%{opacity:.45;transform:scale(.96)}50%{opacity:1;transform:scale(1.04)}}
-.plugin-f1 .f1-copy{grid-area:race;align-self:stretch;border-left:2px solid rgba(229,160,13,.55);padding-left:clamp(1rem,3vw,2rem)}.plugin-f1 .f1-copy h1{font-size:clamp(1.6rem,4.2vw,3.6rem);margin:.25rem 0}.plugin-f1 .countdown{font-size:clamp(1.8rem,4.8vw,4rem);font-weight:900;letter-spacing:-.05em;margin:clamp(.7rem,2vh,1.2rem) 0}
-.plugin-f1 .f1-session-block{margin-top:1rem;padding-top:.7rem;border-top:1px solid var(--border)}.plugin-f1 .session-list{margin-top:.45rem;display:grid;gap:.26rem}.plugin-f1 .session-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.6rem;align-items:center;min-height:1.55rem;padding:.2rem .35rem;border-radius:.32rem;background:rgba(255,255,255,.014);font-size:.58rem}.plugin-f1 .session-row.next{border-left:2px solid #62d5ff;background:rgba(98,213,255,.055)}.plugin-f1 .session-name{font-weight:850}.plugin-f1 .session-date{color:var(--muted)}.plugin-f1 .session-countdown{color:#f4c45c;font-weight:900}
+.plugin-f1 .f1-copy{grid-area:race;align-self:stretch;border-left:2px solid rgba(229,160,13,.55);padding-left:clamp(1rem,2vw,1.6rem);display:grid;grid-template-columns:minmax(0,.92fr) minmax(290px,1.08fr);gap:clamp(1rem,2vw,1.7rem);align-items:start}.plugin-f1 .f1-race-hero{min-width:0}.plugin-f1 .f1-copy h1{font-size:clamp(1.8rem,3.2vw,3.25rem);line-height:.98;margin:.3rem 0 .35rem}.plugin-f1 .countdown{font-size:clamp(2rem,3.7vw,3.6rem);font-weight:900;letter-spacing:-.05em;margin:clamp(.7rem,2vh,1.2rem) 0}
+.plugin-f1 .f1-session-block{margin-top:0;padding-top:0;border-top:0;min-width:0}.plugin-f1 .session-list{margin-top:.45rem;display:grid;gap:.26rem}.plugin-f1 .session-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.6rem;align-items:center;min-height:1.55rem;padding:.2rem .35rem;border-radius:.32rem;background:rgba(255,255,255,.014);font-size:.58rem}.plugin-f1 .session-row.next{border-left:2px solid #62d5ff;background:rgba(98,213,255,.055)}.plugin-f1 .session-name{font-weight:850}.plugin-f1 .session-date{color:var(--muted)}.plugin-f1 .session-countdown{color:#f4c45c;font-weight:900}
 .plugin-f1 .driver-standings{grid-area:drivers}.plugin-f1 .constructor-standings{grid-area:constructors}.plugin-f1 .standings-list{display:grid;gap:.28rem;margin-top:.5rem}.plugin-f1 .standing-row{display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:.5rem;min-height:1.65rem;padding:.18rem .35rem;border-radius:.35rem;background:rgba(255,255,255,.018)}.plugin-f1 .standing-pos{display:grid;place-items:center;width:1.55rem;height:1.55rem;border:1px solid var(--border);border-radius:.32rem;font-weight:900;font-size:.7rem;color:#fff}.plugin-f1 .standing-main{min-width:0}.plugin-f1 .standing-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.72rem;font-weight:820}.plugin-f1 .standing-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:.56rem}.plugin-f1 .standing-points{text-align:right;font-size:.72rem;font-weight:900;color:#f4c45c}.plugin-f1 .standing-points small{display:block;font-size:.5rem;font-weight:600;color:var(--muted)}
 .plugin-f1 .recent-race{grid-area:recent}.plugin-f1 .recent-race-name{margin:.45rem 0 .55rem;font-size:.8rem;font-weight:900}.plugin-f1 .podium-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem}.plugin-f1 .podium-card{padding:.5rem;border:1px solid var(--border);border-radius:.42rem;background:rgba(255,255,255,.015)}.plugin-f1 .podium-card strong{display:block;font-size:.74rem}.plugin-f1 .podium-card small{display:block;color:var(--muted);font-size:.5rem;margin-top:.15rem}.plugin-f1 .fastest-lap{margin-top:.55rem;font-size:.56rem;color:#c4d0d6}
 .plugin-f1 .f1-headlines{grid-area:headlines}.plugin-f1 .headline-list{margin-top:.5rem;display:grid;gap:.3rem}.plugin-f1 .headline-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.6rem;align-items:start;padding:.38rem .42rem;border-radius:.36rem;background:rgba(255,255,255,.014);text-decoration:none;color:inherit;border:1px solid transparent}.plugin-f1 .headline-row:hover{border-color:rgba(229,160,13,.4);background:rgba(229,160,13,.04)}.plugin-f1 .headline-title{font-size:.62rem;font-weight:780;line-height:1.25}.plugin-f1 .headline-meta{font-size:.48rem;color:var(--muted);white-space:nowrap;text-align:right}
-@media(min-width:1000px) and (max-height:500px){.plugin-f1 .f1-layout{grid-template-columns:1.35fr .72fr .62fr;grid-template-areas:"track race drivers" "track race constructors" "recent recent headlines"}.plugin-f1 .track-surface{min-height:390px;grid-template-rows:auto minmax(340px,78vh) auto}.plugin-f1 .track-host{min-height:340px}.plugin-f1 .standing-row{min-height:1.42rem}.plugin-f1 .standing-name{font-size:.66rem}.plugin-f1 .standing-sub{font-size:.52rem}}
+@media(min-width:1000px) and (max-height:500px){.plugin-f1 .f1-layout{grid-template-columns:minmax(330px,.78fr) minmax(510px,1.22fr);grid-template-areas:"track race" "drivers constructors" "recent headlines"}.plugin-f1 .track-surface{min-height:420px;grid-template-rows:auto minmax(350px,72vh) auto}.plugin-f1 .track-host{min-height:350px}.plugin-f1 .f1-copy{grid-template-columns:minmax(0,.9fr) minmax(280px,1.1fr)}.plugin-f1 .standing-row{min-height:1.42rem}.plugin-f1 .standing-name{font-size:.66rem}.plugin-f1 .standing-sub{font-size:.52rem}}
+@media(max-width:1050px){.plugin-f1 .f1-layout{grid-template-columns:minmax(320px,.9fr) minmax(420px,1.1fr)}.plugin-f1 .f1-copy{grid-template-columns:1fr}.plugin-f1 .f1-session-block{margin-top:.85rem;padding-top:.65rem;border-top:1px solid var(--border)}}
 @media(max-width:720px){.plugin-f1 .f1-layout{grid-template-columns:1fr;grid-template-areas:"race" "track" "drivers" "constructors" "recent" "headlines"}.plugin-f1 .f1-copy{border-left:0;padding-left:0}.plugin-f1 .track-surface{min-height:360px}}
 @media(prefers-reduced-motion:reduce){.plugin-f1 .track-host .rackdash-racing-line{animation:none}.plugin-f1 .track-host::before{animation:none}}
 '''
