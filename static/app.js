@@ -460,6 +460,7 @@
       });
       renderI2C(data.i2c||{});renderAdminSecurity(data.admin_auth||{});
       renderPersistedUpdates(data);
+      await loadI2C();
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
     }

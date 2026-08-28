@@ -629,3 +629,17 @@ Metrics mode exposes current monitor status and response time. It does not
 provide the same 24-hour uptime and heartbeat history available through the
 published Status Page endpoints.
 
+
+
+## v2.4.1 I2C Admin Hotfix
+
+Fixed the I2C Display dropdown in Admin.
+
+The display controller list was already provided by the RackDash backend, and
+the frontend had a `loadI2C()` function capable of populating the dropdown, but
+that function was never called when the Admin page loaded. As a result, the
+Display selector appeared empty even though RackDash supported SH1106, SH1107,
+SSD1306, SSD1309, SSD1325, and SSD1327 presets.
+
+Admin now loads the I2C controller/size list whenever the Health/Admin page is
+loaded.
