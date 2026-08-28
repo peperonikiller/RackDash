@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
+import bz2
 import os
 import socket
 import struct
 import time
+import zlib
 from dataclasses import dataclass
 
 from _shared import TTLCache
@@ -12,7 +13,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "serverspy"
 PLUGIN_NAME = "ServerSpy"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.1.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/serverspy.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -23,35 +24,31 @@ PLUGIN_ORDER = 85
 PLUGIN_REFRESH_SECONDS = 30
 PLUGIN_ACCENT = "#65c7ff"
 PLUGIN_ICON = "GAME"
-PLUGIN_PUBLIC_ERROR = "Game server unavailable"
+PLUGIN_PUBLIC_ERROR = "Source game server unavailable"
 
 GAME_PRESETS = {
-    "cs2": ("Counter-Strike 2", "a2s", 27015),
-    "csgo": ("Counter-Strike: Global Offensive", "a2s", 27015),
-    "css": ("Counter-Strike: Source", "a2s", 27015),
-    "tf2": ("Team Fortress 2", "a2s", 27015),
-    "gmod": ("Garry's Mod", "a2s", 27015),
-    "l4d2": ("Left 4 Dead 2", "a2s", 27015),
-    "dayz": ("DayZ", "a2s", 2302),
-    "rust": ("Rust", "a2s", 28015),
-    "ark": ("ARK: Survival Evolved / Ascended", "a2s", 27015),
-    "7dtd": ("7 Days to Die", "a2s", 26900),
-    "valheim": ("Valheim", "a2s", 2457),
-    "unturned": ("Unturned", "a2s", 27015),
-    "project_zomboid": ("Project Zomboid", "a2s", 16261),
-    "squad": ("Squad", "a2s", 27165),
-    "insurgency_sandstorm": ("Insurgency: Sandstorm", "a2s", 27131),
-    "conan_exiles": ("Conan Exiles", "a2s", 27015),
-    "palworld": ("Palworld", "a2s", 8211),
-    "source_generic": ("Steam / Source / A2S (Generic)", "a2s", 27015),
-    "minecraft_java": ("Minecraft: Java Edition", "mc_java", 25565),
-    "minecraft_bedrock": ("Minecraft: Bedrock Edition", "mc_bedrock", 19132),
+    "cs2": ("Counter-Strike 2", 27015),
+    "csgo": ("Counter-Strike: Global Offensive", 27015),
+    "css": ("Counter-Strike: Source", 27015),
+    "tf2": ("Team Fortress 2", 27015),
+    "gmod": ("Garry's Mod", 27015),
+    "l4d": ("Left 4 Dead", 27015),
+    "l4d2": ("Left 4 Dead 2", 27015),
+    "dods": ("Day of Defeat: Source", 27015),
+    "hl2dm": ("Half-Life 2: Deathmatch", 27015),
+    "portal2": ("Portal 2", 27015),
+    "alien_swarm": ("Alien Swarm", 27015),
+    "black_mesa": ("Black Mesa", 27015),
+    "synergy": ("Synergy", 27015),
+    "insurgency": ("Insurgency (2014)", 27015),
+    "fistful_of_frags": ("Fistful of Frags", 27015),
+    "source_generic": ("Source / Source 2 (Generic A2S)", 27015),
 }
 
 PLUGIN_CONFIG = [
     {
         "key": "SERVERSPY_GAME",
-        "label": "Game Server",
+        "label": "Source Game",
         "type": "select",
         "default": "cs2",
         "required": True,
@@ -59,7 +56,7 @@ PLUGIN_CONFIG = [
             {"value": key, "label": value[0]}
             for key, value in GAME_PRESETS.items()
         ],
-        "help": "Select the server type. Use Generic Steam/A2S for other compatible Steam game servers.",
+        "help": "ServerSpy is restricted to Source and Source 2 servers using Valve A2S queries.",
     },
     {
         "key": "SERVERSPY_HOST",
@@ -77,7 +74,7 @@ PLUGIN_CONFIG = [
         "required": True,
         "min": 1,
         "max": 65535,
-        "help": "The query/status port. Some games use a different query port than gameplay port.",
+        "help": "Enter the A2S query port. Many Source servers use 27015, but hosted servers may use another port.",
     },
     {
         "key": "SERVERSPY_TIMEOUT",
@@ -87,6 +84,14 @@ PLUGIN_CONFIG = [
         "required": False,
         "min": 1,
         "max": 10,
+    },
+    {
+        "key": "SERVERSPY_DETAILED_QUERIES",
+        "label": "Player & Rules Details",
+        "type": "checkbox",
+        "default": "true",
+        "required": False,
+        "help": "Also request A2S_PLAYER and A2S_RULES. Player details refresh every 30 seconds; rules are limited to once every 5 minutes.",
     },
 ]
 
@@ -168,174 +173,532 @@ window.RackDashPlugins.serverspy={
 };
 '''
 
-_cache = TTLCache(20)
+_info_cache = TTLCache(20)
+_player_cache = TTLCache(30)
+_rules_cache = TTLCache(300)
 
-def _config():
-    key=os.getenv("SERVERSPY_GAME","cs2").strip()
-    if key not in GAME_PRESETS:key="source_generic"
-    label,protocol,default_port=GAME_PRESETS[key]
-    host=os.getenv("SERVERSPY_HOST","").strip()
-    if not host:raise RuntimeError("Server IP / Hostname is required")
-    try:port=int(os.getenv("SERVERSPY_PORT","") or default_port)
-    except ValueError:port=default_port
-    try:timeout=max(1.0,min(10.0,float(os.getenv("SERVERSPY_TIMEOUT","3") or 3)))
-    except ValueError:timeout=3.0
-    return {"game_key":key,"game_label":label,"protocol":protocol,"host":host,"port":port,"timeout":timeout}
+_info_cache_key = None
+_player_cache_key = None
+_rules_cache_key = None
 
-def _cstring(data,offset):
-    end=data.find(b"\x00",offset)
-    if end<0:raise ValueError("Malformed string")
-    return data[offset:end].decode("utf-8","replace"),end+1
+A2S_SINGLE = b"\xff\xff\xff\xff"
+A2S_SPLIT = b"\xfe\xff\xff\xff"
+A2S_INFO_BODY = b"TSource Engine Query\x00"
 
-def _u8(data,o):return data[o],o+1
-def _u16(data,o):return struct.unpack_from("<H",data,o)[0],o+2
-def _i32(data,o):return struct.unpack_from("<i",data,o)[0],o+4
-def _u64(data,o):return struct.unpack_from("<Q",data,o)[0],o+8
-def _f32(data,o):return struct.unpack_from("<f",data,o)[0],o+4
+MAX_SPLIT_PACKETS = 32
+MAX_RESPONSE_BYTES = 512 * 1024
+
 
 @dataclass
-class _UdpResult:
+class QueryResponse:
     payload: bytes
     ping_ms: float
 
-def _udp_request(host,port,payload,timeout):
-    info=socket.getaddrinfo(host,port,type=socket.SOCK_DGRAM)[0]
-    family=info[0];addr=info[-1]
-    with socket.socket(family,socket.SOCK_DGRAM) as sock:
-        sock.settimeout(timeout)
-        start=time.perf_counter();sock.sendto(payload,addr);response,_=sock.recvfrom(65535)
-        return _UdpResult(response,(time.perf_counter()-start)*1000.0)
 
-A2S_HEADER=b"\xff\xff\xff\xff"
-A2S_INFO_REQUEST=A2S_HEADER+b"TSource Engine Query\x00"
+def _bool_env(name, default="false"):
+    return os.getenv(name, default).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
 
-def _a2s_payload(result):
-    data=result.payload
-    if data[:4]==A2S_HEADER:return data[4:]
-    raise ValueError("Unsupported A2S packet")
 
-def _a2s_info(host,port,timeout):
-    result=_udp_request(host,port,A2S_INFO_REQUEST,timeout)
-    data=_a2s_payload(result)
-    if not data or data[0]!=0x49:raise ValueError("Unexpected A2S_INFO response")
-    o=1
-    protocol,o=_u8(data,o);name,o=_cstring(data,o);map_name,o=_cstring(data,o);folder,o=_cstring(data,o);game,o=_cstring(data,o)
-    app_id,o=_u16(data,o);players,o=_u8(data,o);max_players,o=_u8(data,o);bots,o=_u8(data,o)
-    server_type,o=_u8(data,o);environment,o=_u8(data,o);visibility,o=_u8(data,o);vac,o=_u8(data,o);version,o=_cstring(data,o)
-    d={"online":True,"ping_ms":result.ping_ms,"protocol_version":protocol,"name":name,"map":map_name,"folder":folder,"game":game,"app_id":app_id,"players":players,"max_players":max_players,"bots":bots,"server_type":{100:"Dedicated",108:"Listen",112:"Proxy"}.get(server_type,chr(server_type)),"environment":{108:"Linux",119:"Windows",109:"macOS",111:"macOS"}.get(environment,chr(environment)),"password":bool(visibility),"vac":bool(vac),"version":version}
-    if o<len(data):
-        edf=data[o];o+=1
-        if edf&0x80 and o+2<=len(data):d["game_port"],o=_u16(data,o)
-        if edf&0x10 and o+8<=len(data):d["steam_id"],o=_u64(data,o)
-        if edf&0x40:
-            if o+2<=len(data):d["spectator_port"],o=_u16(data,o)
-            if o<len(data):d["spectator_name"],o=_cstring(data,o)
-        if edf&0x20 and o<len(data):d["keywords"],o=_cstring(data,o)
-        if edf&0x01 and o+8<=len(data):d["game_id"],o=_u64(data,o)
-    return d
+def _config():
+    game_key = os.getenv("SERVERSPY_GAME", "cs2").strip()
+    if game_key not in GAME_PRESETS:
+        game_key = "source_generic"
 
-def _a2s_challenge(host,port,timeout,kind):
-    result=_udp_request(host,port,A2S_HEADER+bytes([kind])+b"\xff\xff\xff\xff",timeout)
-    data=_a2s_payload(result)
-    return data[1:5] if data and data[0]==0x41 and len(data)>=5 else None
+    game_label, default_port = GAME_PRESETS[game_key]
+    host = os.getenv("SERVERSPY_HOST", "").strip()
+    if not host:
+        raise RuntimeError("Server IP / Hostname is required")
 
-def _a2s_players(host,port,timeout):
     try:
-        ch=_a2s_challenge(host,port,timeout,0x55)
-        if not ch:return []
-        data=_a2s_payload(_udp_request(host,port,A2S_HEADER+b"U"+ch,timeout))
-        if not data or data[0]!=0x44:return []
-        count=data[1];o=2;rows=[]
-        for _ in range(count):
-            if o>=len(data):break
-            _,o=_u8(data,o);name,o=_cstring(data,o);score,o=_i32(data,o);duration,o=_f32(data,o)
-            rows.append({"name":name,"score":score,"duration":max(0,int(duration))})
-        return sorted(rows,key=lambda r:(-r["score"],r["name"].lower()))
-    except Exception:return []
+        port = int(os.getenv("SERVERSPY_PORT", "") or default_port)
+    except ValueError:
+        port = default_port
 
-def _a2s_rules(host,port,timeout):
+    if not 1 <= port <= 65535:
+        raise RuntimeError("Query port must be between 1 and 65535")
+
     try:
-        ch=_a2s_challenge(host,port,timeout,0x56)
-        if not ch:return {}
-        data=_a2s_payload(_udp_request(host,port,A2S_HEADER+b"V"+ch,timeout))
-        if not data or data[0]!=0x45:return {}
-        count=struct.unpack_from("<H",data,1)[0];o=3;rules={}
-        for _ in range(count):
-            if o>=len(data):break
-            k,o=_cstring(data,o);v,o=_cstring(data,o);rules[k]=v
-        return rules
-    except Exception:return {}
+        timeout = float(os.getenv("SERVERSPY_TIMEOUT", "3") or 3)
+    except ValueError:
+        timeout = 3.0
+    timeout = max(1.0, min(10.0, timeout))
 
-def _query_a2s(c):
-    d=_a2s_info(c["host"],c["port"],c["timeout"])
-    d.update({"protocol_label":"Steam A2S","player_list":_a2s_players(c["host"],c["port"],c["timeout"]),"rules":_a2s_rules(c["host"],c["port"],c["timeout"]),"secure":d.get("vac")})
-    return d
+    return {
+        "game_key": game_key,
+        "game_label": game_label,
+        "host": host,
+        "port": port,
+        "timeout": timeout,
+        "detailed": _bool_env("SERVERSPY_DETAILED_QUERIES", "true"),
+    }
 
-def _mc_varint(value):
-    out=bytearray();value&=0xffffffff
+
+def _cache_key(config):
+    return (
+        config["game_key"],
+        config["host"].lower(),
+        config["port"],
+    )
+
+
+def _make_socket(host, port, timeout):
+    rows = socket.getaddrinfo(host, port, type=socket.SOCK_DGRAM)
+    if not rows:
+        raise OSError("Unable to resolve server address")
+
+    family, _, _, _, address = rows[0]
+    sock = socket.socket(family, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    sock.connect(address)
+    return sock
+
+
+def _strip_single_header(data):
+    return data[4:] if data.startswith(A2S_SINGLE) else data
+
+
+def _receive_split(sock, first_packet, deadline):
+    chunks = {}
+    request_id = None
+    compressed = False
+    total = None
+    expected_size = None
+    expected_crc = None
+    packet = first_packet
+
     while True:
-        b=value&0x7f;value>>=7
-        if value:b|=0x80
-        out.append(b)
-        if not value:return bytes(out)
+        if not packet.startswith(A2S_SPLIT) or len(packet) < 12:
+            raise ValueError("Malformed split A2S packet")
 
-def _mc_read_varint(sock):
-    value=0;pos=0
-    while True:
-        raw=sock.recv(1)
-        if not raw:raise ValueError("Minecraft connection closed")
-        b=raw[0];value|=(b&0x7f)<<pos
-        if not b&0x80:return value
-        pos+=7
-        if pos>=35:raise ValueError("VarInt too large")
+        offset = 4
+        packet_id = struct.unpack_from("<I", packet, offset)[0]
+        offset += 4
 
-def _mc_read_exact(sock,n):
-    out=bytearray()
-    while len(out)<n:
-        part=sock.recv(n-len(out))
-        if not part:raise ValueError("Minecraft connection closed")
-        out.extend(part)
-    return bytes(out)
+        packet_compressed = bool(packet_id & 0x80000000)
+        clean_id = packet_id & 0x7FFFFFFF
 
-def _query_minecraft_java(c):
-    with socket.create_connection((c["host"],c["port"]),timeout=c["timeout"]) as sock:
-        hb=c["host"].encode();handshake=_mc_varint(0)+_mc_varint(47)+_mc_varint(len(hb))+hb+struct.pack(">H",c["port"])+_mc_varint(1)
-        sock.sendall(_mc_varint(len(handshake))+handshake)
-        start=time.perf_counter();sock.sendall(b"\x01\x00")
-        _mc_read_varint(sock);packet_id=_mc_read_varint(sock)
-        if packet_id!=0:raise ValueError("Unexpected Minecraft status response")
-        length=_mc_read_varint(sock);status=json.loads(_mc_read_exact(sock,length).decode())
-        ping_ms=(time.perf_counter()-start)*1000.0
-    players=status.get("players") or {};version=status.get("version") or {};desc=status.get("description")
-    name=desc.get("text","Minecraft Server") if isinstance(desc,dict) else str(desc or "Minecraft Server")
-    sample=players.get("sample") or []
-    return {"online":True,"name":name,"game":"Minecraft","map":"","players":int(players.get("online",0) or 0),"max_players":int(players.get("max",0) or 0),"bots":0,"ping_ms":ping_ms,"version":version.get("name",""),"protocol_version":version.get("protocol"),"protocol_label":"Minecraft Java Status","player_list":[{"name":p.get("name","Player"),"score":None,"duration":None} for p in sample],"rules":{"motd":name,"version":version.get("name",""),"protocol":version.get("protocol","")},"password":False,"vac":None,"secure":None}
+        packet_total = packet[offset]
+        packet_number = packet[offset + 1]
+        offset += 2
 
-BEDROCK_MAGIC=bytes.fromhex("00ffff00fefefefefdfdfdfd12345678")
+        # Source/Source 2 split responses advertise the max fragment size.
+        _fragment_size = struct.unpack_from("<H", packet, offset)[0]
+        offset += 2
 
-def _query_minecraft_bedrock(c):
-    packet=b"\x01"+struct.pack(">Q",int(time.time()*1000))+BEDROCK_MAGIC+struct.pack(">Q",0x123456789abcdef)
-    result=_udp_request(c["host"],c["port"],packet,c["timeout"]);data=result.payload
-    if not data or data[0]!=0x1c:raise ValueError("Unexpected Bedrock response")
-    o=1+8+8+16;length=struct.unpack_from(">H",data,o)[0];o+=2;fields=data[o:o+length].decode("utf-8","replace").split(";")
-    name=fields[1] if len(fields)>1 else "Minecraft Bedrock";protocol=fields[2] if len(fields)>2 else "";version=fields[3] if len(fields)>3 else ""
-    players=int(fields[4]) if len(fields)>4 and fields[4].isdigit() else 0;max_players=int(fields[5]) if len(fields)>5 and fields[5].isdigit() else 0
-    sub=fields[7] if len(fields)>7 else "";mode=fields[8] if len(fields)>8 else ""
-    return {"online":True,"name":name,"game":"Minecraft Bedrock","map":sub,"players":players,"max_players":max_players,"bots":0,"ping_ms":result.ping_ms,"version":version,"protocol_version":protocol,"protocol_label":"Minecraft Bedrock RakNet","player_list":[],"rules":{"motd":name,"sub_motd":sub,"game_mode":mode,"version":version,"protocol":protocol},"password":False,"vac":None,"secure":None}
+        if request_id is None:
+            request_id = clean_id
+            compressed = packet_compressed
+            total = packet_total
+            if total < 1 or total > MAX_SPLIT_PACKETS:
+                raise ValueError("Invalid split-packet count")
+
+        if (
+            clean_id == request_id
+            and packet_total == total
+            and packet_compressed == compressed
+        ):
+            if packet_number >= total:
+                raise ValueError("Invalid split-packet number")
+
+            if compressed and packet_number == 0:
+                if len(packet) < offset + 8:
+                    raise ValueError("Malformed compressed A2S packet")
+                expected_size = struct.unpack_from("<I", packet, offset)[0]
+                expected_crc = struct.unpack_from("<I", packet, offset + 4)[0]
+                offset += 8
+
+            chunks[packet_number] = packet[offset:]
+
+            if sum(len(chunk) for chunk in chunks.values()) > MAX_RESPONSE_BYTES:
+                raise ValueError("A2S response exceeded size limit")
+
+            if len(chunks) == total:
+                break
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Timed out receiving split A2S response")
+
+        sock.settimeout(remaining)
+        packet = sock.recv(65535)
+
+    combined = b"".join(chunks[index] for index in range(total))
+
+    if compressed:
+        combined = bz2.decompress(combined)
+
+        if expected_size is not None and len(combined) != expected_size:
+            raise ValueError("A2S decompressed-size check failed")
+
+        if (
+            expected_crc is not None
+            and (zlib.crc32(combined) & 0xFFFFFFFF) != expected_crc
+        ):
+            raise ValueError("A2S CRC check failed")
+
+    if len(combined) > MAX_RESPONSE_BYTES:
+        raise ValueError("A2S response exceeded size limit")
+
+    return _strip_single_header(combined)
+
+
+def _send_query(host, port, request, timeout):
+    with _make_socket(host, port, timeout) as sock:
+        start = time.perf_counter()
+        deadline = time.monotonic() + timeout
+
+        sock.send(request)
+        first = sock.recv(65535)
+
+        ping_ms = (time.perf_counter() - start) * 1000.0
+
+        if first.startswith(A2S_SINGLE):
+            payload = first[4:]
+        elif first.startswith(A2S_SPLIT):
+            payload = _receive_split(sock, first, deadline)
+        else:
+            raise ValueError("Unexpected A2S packet header")
+
+        return QueryResponse(payload=payload, ping_ms=ping_ms)
+
+
+def _query_with_challenge(
+    host,
+    port,
+    base_request,
+    expected_type,
+    timeout,
+    info_query=False,
+):
+    request = base_request
+
+    for _ in range(3):
+        result = _send_query(host, port, request, timeout)
+        payload = result.payload
+
+        if not payload:
+            raise ValueError("Empty A2S response")
+
+        if payload[0] == 0x41:
+            if len(payload) < 5:
+                raise ValueError("Malformed A2S challenge")
+
+            challenge = payload[1:5]
+
+            if info_query:
+                request = base_request + challenge
+            else:
+                request = base_request[:-4] + challenge
+            continue
+
+        if payload[0] != expected_type:
+            raise ValueError(
+                f"Unexpected A2S response type 0x{payload[0]:02x}"
+            )
+
+        return result
+
+    raise ValueError("A2S challenge retry limit reached")
+
+
+def _require(data, offset, size):
+    if offset + size > len(data):
+        raise ValueError("Truncated A2S response")
+
+
+def _cstring(data, offset):
+    end = data.find(b"\x00", offset)
+    if end < 0:
+        raise ValueError("Malformed A2S string")
+    return data[offset:end].decode("utf-8", "replace"), end + 1
+
+
+def _u8(data, offset):
+    _require(data, offset, 1)
+    return data[offset], offset + 1
+
+
+def _u16(data, offset):
+    _require(data, offset, 2)
+    return struct.unpack_from("<H", data, offset)[0], offset + 2
+
+
+def _i32(data, offset):
+    _require(data, offset, 4)
+    return struct.unpack_from("<i", data, offset)[0], offset + 4
+
+
+def _u64(data, offset):
+    _require(data, offset, 8)
+    return struct.unpack_from("<Q", data, offset)[0], offset + 8
+
+
+def _f32(data, offset):
+    _require(data, offset, 4)
+    return struct.unpack_from("<f", data, offset)[0], offset + 4
+
+
+def _parse_info(payload, ping_ms):
+    if not payload or payload[0] != 0x49:
+        raise ValueError("Invalid A2S_INFO payload")
+
+    offset = 1
+    protocol, offset = _u8(payload, offset)
+    name, offset = _cstring(payload, offset)
+    map_name, offset = _cstring(payload, offset)
+    folder, offset = _cstring(payload, offset)
+    game, offset = _cstring(payload, offset)
+    app_id, offset = _u16(payload, offset)
+    players, offset = _u8(payload, offset)
+    max_players, offset = _u8(payload, offset)
+    bots, offset = _u8(payload, offset)
+    server_type_raw, offset = _u8(payload, offset)
+    environment_raw, offset = _u8(payload, offset)
+    visibility, offset = _u8(payload, offset)
+    vac, offset = _u8(payload, offset)
+    version, offset = _cstring(payload, offset)
+
+    result = {
+        "online": True,
+        "ping_ms": round(ping_ms, 1),
+        "protocol_version": protocol,
+        "name": name,
+        "map": map_name,
+        "folder": folder,
+        "game": game,
+        "app_id": app_id,
+        "players": players,
+        "max_players": max_players,
+        "bots": bots,
+        "server_type": {
+            ord("d"): "Dedicated",
+            ord("l"): "Listen",
+            ord("p"): "SourceTV / Proxy",
+        }.get(server_type_raw, chr(server_type_raw)),
+        "environment": {
+            ord("l"): "Linux",
+            ord("w"): "Windows",
+            ord("m"): "macOS",
+            ord("o"): "macOS",
+        }.get(environment_raw, chr(environment_raw)),
+        "password": bool(visibility),
+        "vac": bool(vac),
+        "version": version,
+    }
+
+    if offset >= len(payload):
+        return result
+
+    edf, offset = _u8(payload, offset)
+
+    if edf & 0x80:
+        result["game_port"], offset = _u16(payload, offset)
+
+    if edf & 0x10:
+        result["steam_id"], offset = _u64(payload, offset)
+
+    if edf & 0x40:
+        result["spectator_port"], offset = _u16(payload, offset)
+        result["spectator_name"], offset = _cstring(payload, offset)
+
+    if edf & 0x20:
+        result["keywords"], offset = _cstring(payload, offset)
+
+    if edf & 0x01:
+        result["game_id"], offset = _u64(payload, offset)
+
+    return result
+
+
+def _fetch_info(config):
+    global _info_cache_key
+
+    key = _cache_key(config)
+    cached = _info_cache.get()
+    if cached is not None and _info_cache_key == key:
+        return dict(cached)
+
+    base_request = A2S_SINGLE + b"T" + A2S_INFO_BODY
+
+    result = _query_with_challenge(
+        config["host"],
+        config["port"],
+        base_request,
+        0x49,
+        config["timeout"],
+        info_query=True,
+    )
+
+    parsed = _parse_info(result.payload, result.ping_ms)
+
+    _info_cache_key = key
+    return dict(_info_cache.set(parsed))
+
+
+def _parse_players(payload):
+    if not payload or payload[0] != 0x44:
+        raise ValueError("Invalid A2S_PLAYER payload")
+
+    count = payload[1] if len(payload) > 1 else 0
+    offset = 2
+    players = []
+
+    for _ in range(count):
+        _, offset = _u8(payload, offset)
+        name, offset = _cstring(payload, offset)
+        score, offset = _i32(payload, offset)
+        duration, offset = _f32(payload, offset)
+
+        players.append({
+            "name": name,
+            "score": score,
+            "duration": max(0, int(duration)),
+        })
+
+    players.sort(
+        key=lambda row: (-row["score"], row["name"].lower())
+    )
+    return players
+
+
+def _fetch_players(config):
+    global _player_cache_key
+
+    key = _cache_key(config)
+    cached = _player_cache.get()
+    if cached is not None and _player_cache_key == key:
+        return list(cached)
+
+    base_request = A2S_SINGLE + b"U" + b"\xff\xff\xff\xff"
+
+    result = _query_with_challenge(
+        config["host"],
+        config["port"],
+        base_request,
+        0x44,
+        config["timeout"],
+    )
+
+    players = _parse_players(result.payload)
+    _player_cache_key = key
+    return list(_player_cache.set(players))
+
+
+def _parse_rules(payload):
+    if not payload or payload[0] != 0x45:
+        raise ValueError("Invalid A2S_RULES payload")
+
+    _require(payload, 1, 2)
+    count = struct.unpack_from("<H", payload, 1)[0]
+    offset = 3
+    rules = {}
+
+    for _ in range(min(count, 512)):
+        if offset >= len(payload):
+            break
+        key, offset = _cstring(payload, offset)
+        value, offset = _cstring(payload, offset)
+        rules[key] = value
+
+    return rules
+
+
+def _fetch_rules(config):
+    global _rules_cache_key
+
+    key = _cache_key(config)
+    cached = _rules_cache.get()
+    if cached is not None and _rules_cache_key == key:
+        return dict(cached)
+
+    base_request = A2S_SINGLE + b"V" + b"\xff\xff\xff\xff"
+
+    result = _query_with_challenge(
+        config["host"],
+        config["port"],
+        base_request,
+        0x45,
+        config["timeout"],
+    )
+
+    rules = _parse_rules(result.payload)
+    _rules_cache_key = key
+    return dict(_rules_cache.set(rules))
+
 
 def get_data():
-    cached=_cache.get()
-    if cached:return cached
-    c=_config()
-    if c["protocol"]=="a2s":d=_query_a2s(c)
-    elif c["protocol"]=="mc_java":d=_query_minecraft_java(c)
-    elif c["protocol"]=="mc_bedrock":d=_query_minecraft_bedrock(c)
-    else:raise RuntimeError("Unsupported ServerSpy protocol")
-    d.update({"game_key":c["game_key"],"game_label":c["game_label"],"host":c["host"],"query_port":c["port"]})
-    return _cache.set(d)
+    config = _config()
+
+    # A2S_INFO is the only required query. PLAYER/RULES failures are isolated,
+    # so a server that blocks detailed queries still renders normally.
+    data = _fetch_info(config)
+
+    player_list = []
+    rules = {}
+
+    if config["detailed"]:
+        try:
+            player_list = _fetch_players(config)
+        except Exception:
+            player_list = []
+
+        try:
+            rules = _fetch_rules(config)
+        except Exception:
+            rules = {}
+
+    data.update({
+        "game_key": config["game_key"],
+        "game_label": config["game_label"],
+        "host": config["host"],
+        "query_port": config["port"],
+        "protocol_label": "Valve A2S",
+        "detailed_queries": config["detailed"],
+        "player_list": player_list,
+        "rules": rules,
+    })
+
+    return data
+
 
 def get_i2c_data():
-    try:d=get_data()
-    except Exception:return {"title":"ServerSpy","lines":["Server offline"]}
-    ping="--" if d.get("ping_ms") is None else f"{int(round(float(d['ping_ms'])))}ms"
-    return {"title":"ServerSpy","lines":[str(d.get("name") or d.get("game_label") or "")[:18],f"Ping {ping}  P {d.get('players',0)}/{d.get('max_players',0)}",f"Map {str(d.get('map') or 'No map')[:18]}"]}
+    try:
+        data = get_data()
+    except Exception:
+        return {
+            "title": "ServerSpy",
+            "lines": ["Server offline"],
+        }
+
+    ping = (
+        "--"
+        if data.get("ping_ms") is None
+        else f"{int(round(float(data['ping_ms'])))}ms"
+    )
+
+    name = str(
+        data.get("name")
+        or data.get("game_label")
+        or "Source Server"
+    )[:18]
+
+    map_name = str(
+        data.get("map")
+        or "Unknown"
+    )[:18]
+
+    players = (
+        f"{data.get('players', 0)}/"
+        f"{data.get('max_players', 0)}"
+    )
+
+    return {
+        "title": "ServerSpy",
+        "lines": [
+            name,
+            f"Ping {ping}  P {players}",
+            f"Map {map_name}",
+        ],
+    }
