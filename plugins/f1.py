@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
-PLUGIN_VERSION = "1.1.3"
+PLUGIN_VERSION = "1.2.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/f1.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -69,12 +69,15 @@ def _driver_standings():
     lists = payload.get("MRData", {}).get("StandingsTable", {}).get("StandingsLists", [])
     rows = lists[0].get("DriverStandings", []) if lists else []
     result = []
-    for row in rows[:5]:
+    leader_points = float(rows[0].get("points", 0) or 0) if rows else 0
+    for row in rows[:10]:
         driver = row.get("Driver", {})
         constructors = row.get("Constructors", [])
+        points = float(row.get("points", 0) or 0)
         result.append({
             "position": row.get("position", ""),
             "points": row.get("points", "0"),
+            "gap": 0 if not result else round(points - leader_points, 1),
             "wins": row.get("wins", "0"),
             "code": driver.get("code", ""),
             "name": " ".join(x for x in (driver.get("givenName"), driver.get("familyName")) if x),
@@ -98,6 +101,15 @@ def _constructor_standings():
         })
     return result
 
+
+
+def _season_total_rounds():
+    try:
+        payload = _get_json("current.json")
+        races = payload.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+        return len(races)
+    except Exception:
+        return 0
 
 def _recent_race():
     try:
@@ -377,6 +389,7 @@ def get_data():
     constructors = _constructor_standings()
     recent = _recent_race()
     headlines = _headlines()
+    total_rounds = _season_total_rounds()
 
     if not races:
         return _race_cache.set({
@@ -387,6 +400,7 @@ def get_data():
             "headlines": headlines,
             "sessions": [],
             "race_weather": None,
+            "total_rounds": total_rounds,
         })
 
     race = races[0]
@@ -413,6 +427,7 @@ def get_data():
         "constructors": constructors,
         "recent_race": recent,
         "headlines": headlines,
+        "total_rounds": total_rounds,
         "race_weather": _race_day_weather(
             loc.get("lat", ""),
             loc.get("long", ""),
@@ -506,6 +521,7 @@ PLUGIN_HTML = r'''
       <div class="countdown" data-role="countdown">--d --h --m</div>
       <div class="chip-row">
         <span data-role="round"></span>
+        <span data-role="season-progress"></span>
         <span data-role="date"></span>
         <span data-role="time"></span>
       </div>
@@ -523,7 +539,7 @@ PLUGIN_HTML = r'''
   </section>
 
   <section class="surface f1-standings driver-standings">
-    <div class="section-label">DRIVER CHAMPIONSHIP · TOP 5</div>
+    <div class="section-label">DRIVER CHAMPIONSHIP · TOP 10</div>
     <div class="standings-list" data-role="drivers"></div>
   </section>
 
@@ -581,7 +597,7 @@ PLUGIN_CSS = r'''
 PLUGIN_JS = r'''
 window.RackDashPlugins.f1={
   tracerAnimations:new WeakMap(),
-  standings(rows,type){return (rows||[]).map(row=>`<div class="standing-row"><div class="standing-pos">${RackDash.escape(row.position||"-")}</div><div class="standing-main"><div class="standing-name">${RackDash.escape(row.code||row.name||"")}</div><div class="standing-sub">${RackDash.escape(type==="driver"?(row.team||row.name||""):(row.name||""))}</div></div><div class="standing-points">${RackDash.escape(row.points||"0")}<small>PTS${row.wins&&Number(row.wins)>0?` · ${RackDash.escape(row.wins)}W`:""}</small></div></div>`).join("")},
+  standings(rows,type){return (rows||[]).map(row=>`<div class="standing-row"><div class="standing-pos">${RackDash.escape(row.position||"-")}</div><div class="standing-main"><div class="standing-name">${RackDash.escape(row.code||row.name||"")}</div><div class="standing-sub">${RackDash.escape(type==="driver"?(row.team||row.name||""):(row.name||""))}${type==="driver"&&Number(row.position)>1&&row.gap!=null?` · ${RackDash.escape(String(row.gap))} PTS`:""}</div></div><div class="standing-points">${RackDash.escape(row.points||"0")}<small>PTS${row.wins&&Number(row.wins)>0?` · ${RackDash.escape(row.wins)}W`:""}</small></div></div>`).join("")},
   duration(seconds){seconds=Math.max(0,Number(seconds||0));const d=Math.floor(seconds/86400),h=Math.floor((seconds%86400)/3600),m=Math.floor((seconds%3600)/60);if(d)return `${d}d ${h}h`;if(h)return `${h}h ${m}m`;return `${m}m`},
   newsAge(seconds){if(seconds==null)return "";seconds=Number(seconds);if(seconds<3600)return `${Math.max(1,Math.floor(seconds/60))}m ago`;if(seconds<86400)return `${Math.floor(seconds/3600)}h ago`;return `${Math.floor(seconds/86400)}d ago`},
   sessions(rows){if(!rows?.length)return `<div class="empty-state">Weekend schedule unavailable.</div>`;const now=Date.now()/1000;let foundNext=false;return rows.map(row=>{const epoch=Number(row.epoch||0),isFuture=epoch>=now-7200,isNext=!foundNext&&isFuture;if(isNext)foundNext=true;const date=epoch?new Date(epoch*1000).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"}):[row.date,row.time].filter(Boolean).join(" ");const kind=(row.name||"").toLowerCase().includes("qualifying")?"qualifying":((row.name||"").toLowerCase()==="race"?"race":"");return `<div class="session-row ${isNext?"next":""} ${kind}"><span class="session-name">${RackDash.escape(row.name||"Session")}</span><span class="session-date">${RackDash.escape(date)}</span><span class="session-countdown">${isNext?RackDash.escape(this.duration(Math.max(0,row.countdown||0))):""}</span></div>`}).join("")},
@@ -595,7 +611,7 @@ window.RackDashPlugins.f1={
     root.querySelector('[data-role="headlines"]').innerHTML=this.headlines(data.headlines);
     const recent=this.recent(data.recent_race);root.querySelector('[data-role="recent-name"]').textContent=data.recent_race?.name||"Recent race";root.querySelector('[data-role="podium"]').innerHTML=recent.podium;root.querySelector('[data-role="fastest"]').textContent=recent.fastest;
     if(!data.available){root.querySelector('[data-role="name"]').textContent="No upcoming race";root.querySelector('[data-role="sessions"]').innerHTML=`<div class="empty-state">Weekend schedule unavailable.</div>`;return}
-    root.querySelector('[data-role="name"]').textContent=data.name;const location=[data.city,data.country].filter(Boolean).join(" • ");root.querySelector('[data-role="race-location"]').textContent=[data.circuit,location].filter(Boolean).join(" • ");root.querySelector('[data-role="track-location"]').textContent=location;root.querySelector('[data-role="circuit"]').textContent=data.circuit||"";root.querySelector('[data-role="round"]').textContent=`ROUND ${data.round}`;root.querySelector('[data-role="date"]').textContent=data.date;root.querySelector('[data-role="time"]').textContent=data.time;
+    root.querySelector('[data-role="name"]').textContent=data.name;const location=[data.city,data.country].filter(Boolean).join(" • ");root.querySelector('[data-role="race-location"]').textContent=[data.circuit,location].filter(Boolean).join(" • ");root.querySelector('[data-role="track-location"]').textContent=location;root.querySelector('[data-role="circuit"]').textContent=data.circuit||"";root.querySelector('[data-role="round"]').textContent=`ROUND ${data.round}`;const seasonProgress=root.querySelector('[data-role="season-progress"]');if(seasonProgress)seasonProgress.textContent=data.total_rounds?`${data.round}/${data.total_rounds} ROUNDS`:"";root.querySelector('[data-role="date"]').textContent=data.date;root.querySelector('[data-role="time"]').textContent=data.time;
     const sec=Number(data.countdown||0);root.querySelector('[data-role="countdown"]').textContent=`${Math.floor(sec/86400)}d ${Math.floor((sec%86400)/3600)}h ${Math.floor((sec%3600)/60)}m`;root.querySelector('[data-role="sessions"]').innerHTML=this.sessions(data.sessions);
     const weather=root.querySelector('[data-role="race-weather"]');
     if(weather)weather.innerHTML=this.weather(data.race_weather);
@@ -604,3 +620,5 @@ window.RackDashPlugins.f1={
   }
 };
 '''
+
+# v1.2.0: top-10 driver standings, championship gaps, season progress.
