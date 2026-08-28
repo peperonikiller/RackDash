@@ -93,6 +93,49 @@
     if(overlay)overlay.hidden=true;
   }
 
+  function showApplyOverlay(title="Applying changes",message="RackDash will refresh automatically."){
+    const overlay=document.getElementById("applyOverlay");
+    const heading=document.getElementById("applyTitle");
+    const body=document.getElementById("applyMessage");
+    if(heading)heading.textContent=title;
+    if(body)body.textContent=message;
+    if(overlay)overlay.hidden=false;
+  }
+
+  function freshReload(){
+    const url=new URL(window.location.href);
+    url.searchParams.set("rd_refresh",Date.now().toString());
+    window.location.replace(url.toString());
+  }
+
+  async function reloadAfterRestart(title="Applying changes"){
+    showApplyOverlay(title,"Waiting for RackDash to restart. This page will refresh automatically.");
+    // Give the scheduled server exit time to occur, then probe quickly instead
+    // of making the user wait for the normal 30-second reconnect cycle.
+    await new Promise(resolve=>setTimeout(resolve,1300));
+    const started=Date.now();
+    while(Date.now()-started<90000){
+      try{
+        const response=await fetch(`/api/system?apply=${Date.now()}`,{cache:"no-store"});
+        if(response.ok){freshReload();return;}
+      }catch(e){}
+      await new Promise(resolve=>setTimeout(resolve,900));
+    }
+    showConnectionLost();
+  }
+
+  async function restartAndReload(title="Applying changes"){
+    const response=await adminFetch("/api/health/restart",{method:"POST"});
+    const result=await response.json();
+    if(!result.ok)throw new Error(result.error||"Restart failed");
+    await reloadAfterRestart(title);
+  }
+
+  function reloadAfterFrontendChange(title="Refreshing dashboard"){
+    showApplyOverlay(title,"Loading the updated dashboard now.");
+    setTimeout(freshReload,220);
+  }
+
   function scheduleReconnectCheck(){
     if(reconnectTimer)clearTimeout(reconnectTimer);
     if(reconnectCountdownTimer)clearInterval(reconnectCountdownTimer);
@@ -291,7 +334,7 @@
     if(!rows.length){alert("No plugin backups available.");return;}
     const choice=prompt(`Choose backup number:\n${rows.map((b,i)=>`${i+1}: ${b.name}`).join("\n")}`,"1");
     const selected=rows[Number(choice)-1];if(!selected)return;
-    try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/rollback`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({backup:selected.name})});const x=await r.json();alert(x.ok?"Rollback installed. Restart RackDash.":x.error);}catch(e){}
+    try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/rollback`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({backup:selected.name})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Rollback failed");await restartAndReload(`Rolling back ${id}`);}catch(e){alert(e.message);}
   }
 
   async function debugPlugin(id){
@@ -422,7 +465,14 @@
         </div>`).join("");
 
       list.querySelectorAll("[data-plugin-settings]").forEach(btn=>btn.addEventListener("click",()=>{const p=(window.__RackDashHealth?.plugins||[]).find(x=>x.id===btn.dataset.pluginSettings);if(p)openSettings(`${p.name} Settings`,p.config_fields||[],`/api/health/plugin/${encodeURIComponent(p.id)}/config`);}));
-      list.querySelectorAll("[data-plugin-enabled]").forEach(toggle=>toggle.addEventListener("change",async()=>{await adminFetch(`/api/health/plugin/${encodeURIComponent(toggle.dataset.pluginEnabled)}/enabled`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:toggle.checked})});const st=toggle.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st){st.textContent="Reload page to apply visibility";st.className="health-update-status ahead";}}));
+      list.querySelectorAll("[data-plugin-enabled]").forEach(toggle=>toggle.addEventListener("change",async()=>{
+        try{
+          const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(toggle.dataset.pluginEnabled)}/enabled`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:toggle.checked})});
+          const x=await r.json();
+          if(!x.ok)throw new Error(x.error||"Unable to change plugin state");
+          reloadAfterFrontendChange("Updating plugin visibility");
+        }catch(e){toggle.checked=!toggle.checked;alert(e.message);}
+      }));
       list.querySelectorAll("[data-save-display]").forEach(btn=>btn.addEventListener("click",async()=>{
         const id=btn.dataset.saveDisplay;
         const payload={
@@ -432,13 +482,13 @@
           show_tab:!!list.querySelector(`[data-display-tab="${CSS.escape(id)}"]`)?.checked,
           auto_rotate:!!list.querySelector(`[data-display-auto="${CSS.escape(id)}"]`)?.checked
         };
-        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/display`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const x=await r.json();alert(x.ok?"Display settings saved. Reload RackDash to apply tab changes.":x.error);}catch(e){}
+        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/display`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const x=await r.json();if(!x.ok)throw new Error(x.error||"Display settings failed");reloadAfterFrontendChange("Applying display settings");}catch(e){alert(e.message);}
       }));
       list.querySelectorAll("[data-plugin-rollback]").forEach(btn=>btn.addEventListener("click",()=>rollbackPlugin(btn.dataset.pluginRollback)));
       list.querySelectorAll("[data-plugin-debug]").forEach(btn=>btn.addEventListener("click",()=>debugPlugin(btn.dataset.pluginDebug)));
       list.querySelectorAll("[data-plugin-reload]").forEach(btn=>btn.addEventListener("click",async()=>{
         const id=btn.dataset.pluginReload;
-        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/reload`,{method:"POST"});const x=await r.json();alert(x.ok?`Reloaded ${x.plugin.name}. Custom route changes still require a RackDash restart.`:x.error);}catch(e){}
+        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/reload`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Reload failed");reloadAfterFrontendChange(`Reloaded ${x.plugin.name}`);}catch(e){alert(e.message);}
       }));
       list.querySelectorAll("[data-plugin-test]").forEach(btn=>btn.addEventListener("click",async()=>{
         btn.disabled=true;
@@ -590,7 +640,7 @@
 
   document.getElementById("rackdashUpdateNow")?.addEventListener("click",async()=>{
     if(!confirm("Download and install the latest RackDash GitHub release? A backup will be created first."))return;
-    try{const r=await adminFetch("/api/admin/core/update",{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");document.getElementById("rackdashUpdateMessage").textContent=`Installed ${x.update.version}. Restarting...`;setTimeout(showConnectionLost,900);}catch(e){document.getElementById("rackdashUpdateMessage").textContent=e.message;}
+    try{const r=await adminFetch("/api/admin/core/update",{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");document.getElementById("rackdashUpdateMessage").textContent=`Installed ${x.update.version}. Restarting...`;await reloadAfterRestart(`Updating RackDash to ${x.update.version}`);}catch(e){document.getElementById("rackdashUpdateMessage").textContent=e.message;}
   });
 
   document.getElementById("healthRestart")?.addEventListener("click",async()=>{
@@ -602,9 +652,11 @@
       const response=await adminFetch("/api/health/restart",{method:"POST"});
       const result=await response.json();
       if(!result.ok)throw new Error(result.error||"Restart failed");
-      setTimeout(showConnectionLost,900);
+      await reloadAfterRestart("Restarting RackDash");
     }catch(e){
-      showConnectionLost();
+      button.disabled=false;
+      button.textContent="RESTART";
+      alert(e.message||"Restart failed");
     }
   });
 
@@ -617,8 +669,13 @@
     try{
       const r=await adminFetch(settingsEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({values,restart})});
       const result=await r.json();if(!result.ok)throw new Error(result.error||"Save failed");
-      note.textContent=restart?"Saved. RackDash is restarting...":"Saved. Restart RackDash to apply.";
-      if(restart)setTimeout(showConnectionLost,900);
+      if(restart){
+        note.textContent="Saved. Applying changes...";
+        closeSettings();
+        await reloadAfterRestart("Applying settings");
+      }else{
+        note.textContent="Saved to config.env. Use SAVE & APPLY when you want the running dashboard updated.";
+      }
     }catch(e){note.textContent=e.message;}
   }
   document.getElementById("settingsSave")?.addEventListener("click",()=>saveSettings(false));
@@ -634,16 +691,17 @@
       const x=await r.json();
       if(!x.ok)throw new Error(x.error||"Official update failed");
       if(st){
-        st.textContent=`Installed official v${x.plugin.version}. Restart RackDash.`;
-        st.className="health-update-status update_available";
+        st.textContent=`Installed official v${x.plugin.version}. Applying...`;
+        st.className="health-update-status current";
       }
+      await restartAndReload(`Updating ${id} to v${x.plugin.version}`);
     }catch(e){
       if(st){st.textContent=e.message;st.className="health-update-status error";}
     }finally{button.disabled=false;}
   }
 
-  async function managedPluginUpdate(id,button){button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st)st.textContent="Updating...";try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/update-managed`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");if(st){st.textContent=`Installed ${x.plugin.version}. Restart RackDash.`;st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
-  async function uninstallPlugin(id,button){if(!confirm(`Uninstall ${id}? A backup will be kept.`))return;button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/uninstall`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Uninstall failed");if(st){st.textContent="Uninstalled. Restart RackDash.";st.className="health-update-status update_available";}}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
+  async function managedPluginUpdate(id,button){button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");if(st)st.textContent="Updating...";try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/update-managed`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");if(st){st.textContent=`Installed ${x.plugin.version}. Applying...`;st.className="health-update-status current";}await restartAndReload(`Updating ${id} to ${x.plugin.version}`);}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
+  async function uninstallPlugin(id,button){if(!confirm(`Uninstall ${id}? A backup will be kept.`))return;button.disabled=true;const st=button.closest(".health-plugin-row")?.querySelector("[data-update-status]");try{const r=await adminFetch(`/api/health/plugin/${encodeURIComponent(id)}/uninstall`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Uninstall failed");if(st){st.textContent="Uninstalled. Applying...";st.className="health-update-status current";}await restartAndReload(`Removing ${id}`);}catch(e){if(st){st.textContent=e.message;st.className="health-update-status error";}}finally{button.disabled=false;}}
 
   function refreshHealthUpdateCount(){
     const count=document.querySelectorAll(".health-update-status.update_available").length;
@@ -754,7 +812,7 @@
     }catch(e){message.textContent=e.message;}
   });
 
-  document.getElementById("healthInstallButton")?.addEventListener("click",async()=>{const input=document.getElementById("healthInstallUrl"),button=document.getElementById("healthInstallButton"),status=document.getElementById("healthInstallStatus"),github_url=input.value.trim();if(!github_url){status.textContent="Enter a GitHub repository URL.";return;}button.disabled=true;status.textContent="Downloading manifest and validating plugin...";try{const pr=await adminFetch(`/api/admin/plugins/preview?github_url=${encodeURIComponent(github_url)}`);const preview=await pr.json();if(!preview.ok)throw new Error(preview.error||"Preview failed");const caps=(preview.plugin.capabilities||[]).join(", ")||"none declared";if(!confirm(`Install ${preview.plugin.name} v${preview.plugin.version}?\nCapabilities: ${caps}`)){button.disabled=false;status.textContent="Install cancelled.";return;}const r=await adminFetch("/api/health/plugins/install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({github_url})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Install failed");status.textContent=`Installed ${x.plugin.name} v${x.plugin.version}. Restart RackDash to load it.`;input.value="";}catch(e){status.textContent=e.message;}finally{button.disabled=false;}});
+  document.getElementById("healthInstallButton")?.addEventListener("click",async()=>{const input=document.getElementById("healthInstallUrl"),button=document.getElementById("healthInstallButton"),status=document.getElementById("healthInstallStatus"),github_url=input.value.trim();if(!github_url){status.textContent="Enter a GitHub repository URL.";return;}button.disabled=true;status.textContent="Downloading manifest and validating plugin...";try{const pr=await adminFetch(`/api/admin/plugins/preview?github_url=${encodeURIComponent(github_url)}`);const preview=await pr.json();if(!preview.ok)throw new Error(preview.error||"Preview failed");const caps=(preview.plugin.capabilities||[]).join(", ")||"none declared";if(!confirm(`Install ${preview.plugin.name} v${preview.plugin.version}?\nCapabilities: ${caps}`)){button.disabled=false;status.textContent="Install cancelled.";return;}const r=await adminFetch("/api/health/plugins/install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({github_url})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Install failed");status.textContent=`Installed ${x.plugin.name} v${x.plugin.version}. Applying...`;input.value="";await restartAndReload(`Installing ${x.plugin.name}`);}catch(e){status.textContent=e.message;}finally{button.disabled=false;}});
   document.getElementById("healthCheckAll")?.addEventListener("click",async e=>{
     const button=e.currentTarget;
     button.disabled=true;

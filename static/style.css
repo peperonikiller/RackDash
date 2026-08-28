@@ -250,3 +250,39 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 .update-auto-settings label{display:flex;align-items:center;gap:.35rem;font-size:.58rem;font-weight:800;color:#a9b5bb;letter-spacing:.03em}
 .update-auto-settings input{accent-color:var(--accent)}
 .update-last-check{margin-top:.35rem;font-size:.56rem}
+
+
+/* RackDash 2.5 Admin workspace */
+.plugin-health .plugin-scroll{scroll-behavior:smooth}
+.admin-hero{display:flex;align-items:center;justify-content:space-between;gap:1.25rem;margin-bottom:.55rem;border-left:2px solid #6fb7ff;background:linear-gradient(110deg,rgba(111,183,255,.055),rgba(255,255,255,.008) 38%,transparent)}
+.admin-hero h1{margin:.18rem 0 .12rem;font-size:clamp(1.45rem,3vw,2.5rem);line-height:1}
+.admin-hero-actions{display:flex;gap:.45rem;flex-wrap:wrap;justify-content:flex-end}
+.admin-nav{position:sticky;top:0;z-index:12;display:flex;gap:.3rem;align-items:center;overflow-x:auto;margin-bottom:var(--gap);padding:.38rem;border:1px solid var(--border);border-radius:.55rem;background:rgba(7,16,22,.94);backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.admin-nav a{flex:0 0 auto;padding:.42rem .58rem;border-radius:.36rem;color:#9baab2;text-decoration:none;font-size:.54rem;font-weight:900;letter-spacing:.055em;border:1px solid transparent}
+.admin-nav a:hover,.admin-nav a:focus{color:var(--text);border-color:#31434d;background:#101a20;outline:none}
+.admin-section{scroll-margin-top:3.6rem;margin-bottom:clamp(.8rem,1.6vw,1.25rem)}
+.admin-section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin:0 0 .45rem;padding:0 .12rem}
+.admin-section-title h2{margin:.12rem 0 0;font-size:.98rem;font-weight:850;letter-spacing:-.015em}
+.admin-section-title .eyebrow{font-size:.48rem}
+.admin-apply-note{display:flex;align-items:center;gap:.35rem;color:#8da0aa;font-size:.55rem;font-weight:750}
+.admin-live-dot{width:.48rem;height:.48rem;border-radius:50%;background:#57d978;box-shadow:0 0 8px rgba(87,217,120,.55)}
+.admin-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.25rem}
+.compact-admin-card{margin-top:.55rem!important}
+.primary-admin-action{border-color:#375e75!important;background:#122632!important;color:#d9f0ff!important}
+.admin-platform-panel,.admin-i2c-panel,.rackdash-update-panel,.health-plugin-panel,.health-install-panel{margin-top:0!important}
+.health-plugin-panel{border-color:#2a3941}
+.health-plugin-row{border-radius:.55rem;background:linear-gradient(110deg,rgba(255,255,255,.012),rgba(255,255,255,.004));transition:border-color .16s ease,background .16s ease}
+.health-plugin-row:hover{border-color:#344953;background:rgba(255,255,255,.018)}
+.health-plugin-actions button,.health-plugin-actions a,.platform-tool-grid button,.file-tool,.health-button,.health-check-all{transition:background .14s ease,border-color .14s ease,transform .08s ease}
+.health-plugin-actions button:hover:not(:disabled),.health-plugin-actions a:hover,.platform-tool-grid button:hover,.health-button:hover,.health-check-all:hover{border-color:#42606e;background:#14222a}
+.health-plugin-actions button:active:not(:disabled),.platform-tool-grid button:active,.health-button:active,.health-check-all:active{transform:translateY(1px)}
+
+.apply-overlay{position:fixed;inset:0;z-index:2100;display:grid;place-items:center;background:rgba(3,7,10,.88);backdrop-filter:blur(7px)}
+.apply-overlay[hidden]{display:none}
+.apply-card{width:min(470px,88vw);padding:1.25rem 1.35rem;border:1px solid #355565;border-radius:.85rem;background:#0a1319;box-shadow:0 24px 80px rgba(0,0,0,.58);text-align:center}
+.apply-card h2{margin:.25rem 0 .35rem;font-size:1.3rem}
+.apply-card p{margin:.15rem 0;color:var(--muted);font-size:.7rem}
+.apply-spinner{width:2rem;height:2rem;margin:0 auto .65rem;border:.18rem solid rgba(111,183,255,.16);border-top-color:#6fb7ff;border-radius:50%;animation:rackdash-spin .8s linear infinite}
+@keyframes rackdash-spin{to{transform:rotate(360deg)}}
+
+@media(max-width:800px){.admin-hero{display:grid}.admin-hero-actions{justify-content:flex-start}.admin-section-title{align-items:flex-start;display:grid}.admin-apply-note{margin-top:.2rem}}

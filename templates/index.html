@@ -61,138 +61,113 @@
     {% endfor %}
     <section class="plugin-page plugin-health" id="health-page" tabindex="0">
       <div class="plugin-scroll">
-        <div class="plugin-head">
+        <div class="admin-hero surface">
           <div>
-            <span class="eyebrow">RACKDASH HEALTH</span>
-            <h1>Admin</h1>
-            <div class="muted">System controls, plugin health, GitHub updates, and auxiliary displays.</div>
+            <span class="eyebrow">RACKDASH CONTROL CENTER</span>
+            <h1>Administration</h1>
+            <div class="muted">Manage plugins, display behavior, updates, security, hardware, backups, and diagnostics.</div>
           </div>
-          <div class="health-head-actions"><button type="button" class="health-button health-restart" id="healthRestart">RESTART RACKDASH</button><button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button><button type="button" class="health-check-all" id="healthCheckAll">CHECK ALL UPDATES</button></div>
+          <div class="admin-hero-actions">
+            <button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button>
+            <button type="button" class="health-check-all" id="healthCheckAll">CHECK UPDATES</button>
+            <button type="button" class="health-button health-restart" id="healthRestart">RESTART</button>
+          </div>
         </div>
 
-        <div class="health-summary" id="healthSummary">
-          <article class="metric"><label>RACKDASH</label><strong data-health="app-version">--</strong><small>core version</small></article>
-          <article class="metric"><label>PLUGINS</label><strong data-health="plugin-count">--</strong><small>loaded plugins</small></article>
-          <article class="metric"><label>UPDATES</label><strong data-health="updates">--</strong><small>available</small></article>
-          <article class="metric"><label>STATUS</label><strong data-health="status">--</strong><small>system health</small></article>
-          <article class="metric"><label>HEALTHY</label><strong data-health="healthy-count">--</strong><small>plugins healthy</small></article>
-          <article class="metric"><label>ISSUES</label><strong data-health="issue-count">--</strong><small>need attention</small></article>
-        </div>
+        <nav class="admin-nav" aria-label="Admin sections">
+          <a href="#adminOverview">OVERVIEW</a>
+          <a href="#adminPlugins">PLUGINS</a>
+          <a href="#adminDisplay">DISPLAY & HARDWARE</a>
+          <a href="#adminUpdates">UPDATES</a>
+          <a href="#adminMaintenance">MAINTENANCE</a>
+          <a href="#adminSecurity">SECURITY</a>
+        </nav>
 
-
-
-
-        <section class="surface admin-platform-panel">
-          <div class="admin-section-head">
-            <div>
-              <div class="section-label">ADMIN SECURITY</div>
-              <div class="muted">Protect configuration changes, restarts, updates, plugin management, backups, and hardware controls.</div>
-            </div>
-            <div class="health-head-actions">
-              <button class="health-button" id="adminAuthButton">AUTHENTICATION</button>
-              <button class="health-button" id="adminLogoutButton">LOG OUT</button>
-            </div>
+        <section class="admin-section" id="adminOverview">
+          <div class="admin-section-title">
+            <div><span class="eyebrow">OVERVIEW</span><h2>System at a glance</h2></div>
+            <div class="admin-apply-note"><span class="admin-live-dot"></span> Changes now refresh automatically</div>
           </div>
-          <div class="admin-security-status" id="adminSecurityStatus"></div>
+          <div class="health-summary" id="healthSummary">
+            <article class="metric"><label>RACKDASH</label><strong data-health="app-version">--</strong><small>core version</small></article>
+            <article class="metric"><label>PLUGINS</label><strong data-health="plugin-count">--</strong><small>loaded plugins</small></article>
+            <article class="metric"><label>UPDATES</label><strong data-health="updates">--</strong><small>available</small></article>
+            <article class="metric"><label>STATUS</label><strong data-health="status">--</strong><small>system health</small></article>
+            <article class="metric"><label>HEALTHY</label><strong data-health="healthy-count">--</strong><small>plugins healthy</small></article>
+            <article class="metric"><label>ISSUES</label><strong data-health="issue-count">--</strong><small>need attention</small></article>
+          </div>
         </section>
 
-        <section class="surface admin-platform-panel">
-          <div class="admin-section-head">
-            <div>
-              <div class="section-label">PLATFORM TOOLS</div>
-              <div class="muted">Backups, restore, logs, diagnostics, screen calibration, and developer tools.</div>
-            </div>
+        <section class="admin-section" id="adminPlugins">
+          <div class="admin-section-title">
+            <div><span class="eyebrow">PLUGINS</span><h2>Installed integrations</h2><div class="muted">Health, configuration, presentation, updates, testing, and rollback in one place.</div></div>
           </div>
-          <div class="platform-tool-grid">
-            <button id="backupDownload">DOWNLOAD BACKUP</button>
-            <label class="file-tool">RESTORE BACKUP<input id="backupRestoreFile" type="file" accept=".zip"></label>
-            <button id="backupRestore">RESTORE SELECTED</button>
-            <button id="adminDiagnostics">DIAGNOSTICS</button>
-            <button id="adminLogs">VIEW LOGS</button>
-          </div>
-          <div class="platform-output" id="platformOutput"></div>
+          <section class="surface health-plugin-panel">
+            <div class="admin-card-head"><div><div class="section-label">INSTALLED PLUGINS</div><div class="muted">Plugin code updates and visibility changes automatically reload the dashboard.</div></div></div>
+            <div class="health-plugin-list" id="healthPluginList"></div>
+          </section>
+          <section class="surface health-install-panel compact-admin-card">
+            <div class="admin-card-head"><div><div class="section-label">INSTALL THIRD-PARTY PLUGIN</div><div class="muted">Repository must contain rackdash-plugin.json. RackDash applies the install and reloads automatically.</div></div></div>
+            <div class="health-install-row"><input id="healthInstallUrl" placeholder="https://github.com/owner/rackdash-plugin"><button id="healthInstallButton" type="button">INSTALL</button></div>
+            <div class="health-install-status" id="healthInstallStatus"></div>
+          </section>
         </section>
 
-        <section class="surface rackdash-update-panel" id="rackdashUpdatePanel">
-          <div class="admin-section-head">
-            <div>
-              <div class="section-label">RACKDASH UPDATE</div>
-              <div class="muted">Check the official GitHub repository for a newer RackDash release or tag.</div>
+        <section class="admin-section" id="adminDisplay">
+          <div class="admin-section-title"><div><span class="eyebrow">DISPLAY & HARDWARE</span><h2>Presentation and auxiliary display</h2></div></div>
+          <section class="surface admin-i2c-panel">
+            <div class="admin-section-head">
+              <div><div class="section-label">I2C DISPLAY</div><div class="muted">Drive a small OLED from RackDash for system status, plugin output, or a static monochrome icon.</div></div>
+              <div class="i2c-state" id="i2cState">NOT CONFIGURED</div>
             </div>
-            <a class="health-button" href="https://github.com/peperonikiller/RackDash" target="_blank" rel="noopener">GITHUB</a>
-          </div>
-          <div class="rackdash-update-grid">
-            <div><span>CURRENT</span><strong data-rackdash-update="current">v{{ app_version }}</strong></div>
-            <div><span>LATEST</span><strong data-rackdash-update="latest">NOT CHECKED</strong></div>
-            <div><span>STATUS</span><strong data-rackdash-update="status">NOT CHECKED</strong></div>
-          </div>
-          <div class="rackdash-update-actions">
-            <button class="health-button" id="rackdashUpdateCheck">CHECK RACKDASH UPDATE</button>
-            <button class="health-button" id="rackdashUpdateNow">UPDATE RACKDASH NOW</button>
-          </div>
-          <div class="update-auto-settings">
-            <label><input type="checkbox" id="rackdashDailyUpdateCheck"> DAILY RACKDASH UPDATE CHECK</label>
-            <label><input type="checkbox" id="pluginsDailyUpdateCheck"> DAILY PLUGIN UPDATE CHECKS</label>
-            <button class="health-button" id="saveUpdateCheckSettings">SAVE UPDATE SETTINGS</button>
-          </div>
-          <div class="rackdash-update-message muted" id="rackdashUpdateMessage">
-            Manual checks are always available. Automatic checks run once every 24 hours when enabled.
-          </div>
-          <div class="update-last-check muted" id="updateLastCheck"></div>
+            <div class="i2c-config-grid">
+              <label class="i2c-toggle"><input type="checkbox" id="i2cEnabled"> <span>ENABLE DISPLAY</span></label>
+              <label><span>DISPLAY</span><select id="i2cDisplay"></select></label>
+              <label><span>MODE</span><select id="i2cMode"><option value="system">System Only</option><option value="system_plugin">System + Plugins</option><option value="icon">Static Icon</option></select></label>
+              <label><span>BUS</span><input id="i2cBus" type="number" value="1" min="0" max="9"></label>
+              <label><span>ADDRESS</span><input id="i2cAddress" value="0x3C"></label>
+              <label><span>ROTATE</span><input id="i2cRotate" type="number" value="8" min="2"><small>seconds</small></label>
+              <label><span>CONTRAST</span><input id="i2cContrast" type="number" value="255" min="0" max="255"></label>
+            </div>
+            <div class="i2c-actions"><button type="button" id="i2cSave">SAVE / CONNECT</button><button type="button" id="i2cTest">TEST DISPLAY</button><span id="i2cMessage" class="muted"></span></div>
+            <div class="i2c-icon-panel" id="i2cIconPanel"><div><strong>STATIC ICON</strong><div class="muted" id="i2cIconLimit">Select a display to see the maximum image size.</div></div><input id="i2cIconFile" type="file" accept="image/png,image/jpeg,image/webp,image/bmp"><button type="button" id="i2cUploadIcon">UPLOAD + CONVERT</button></div>
+            <div class="i2c-runtime" id="i2cRuntime"></div>
+          </section>
         </section>
 
-        <section class="surface admin-i2c-panel">
-          <div class="admin-section-head">
-            <div>
-              <div class="section-label">I2C DISPLAY</div>
-              <div class="muted">Drive a small OLED from RackDash for system status, plugin output, or a static monochrome icon.</div>
+        <section class="admin-section" id="adminUpdates">
+          <div class="admin-section-title"><div><span class="eyebrow">UPDATES</span><h2>RackDash release channel</h2></div></div>
+          <section class="surface rackdash-update-panel" id="rackdashUpdatePanel">
+            <div class="admin-section-head">
+              <div><div class="section-label">RACKDASH UPDATE</div><div class="muted">Check the official repository for a newer RackDash release. Successful updates restart and refresh this page automatically.</div></div>
+              <a class="health-button" href="https://github.com/peperonikiller/RackDash" target="_blank" rel="noopener">GITHUB</a>
             </div>
-            <div class="i2c-state" id="i2cState">NOT CONFIGURED</div>
-          </div>
-
-          <div class="i2c-config-grid">
-            <label class="i2c-toggle"><input type="checkbox" id="i2cEnabled"> <span>ENABLE DISPLAY</span></label>
-            <label><span>DISPLAY</span><select id="i2cDisplay"></select></label>
-            <label><span>MODE</span>
-              <select id="i2cMode">
-                <option value="system">System Only</option>
-                <option value="system_plugin">System + Plugins</option>
-                <option value="icon">Static Icon</option>
-              </select>
-            </label>
-            <label><span>BUS</span><input id="i2cBus" type="number" value="1" min="0" max="9"></label>
-            <label><span>ADDRESS</span><input id="i2cAddress" value="0x3C"></label>
-            <label><span>ROTATE</span><input id="i2cRotate" type="number" value="8" min="2"><small>seconds</small></label>
-            <label><span>CONTRAST</span><input id="i2cContrast" type="number" value="255" min="0" max="255"></label>
-          </div>
-
-          <div class="i2c-actions">
-            <button type="button" id="i2cSave">SAVE / CONNECT</button>
-            <button type="button" id="i2cTest">TEST DISPLAY</button>
-            <span id="i2cMessage" class="muted"></span>
-          </div>
-
-          <div class="i2c-icon-panel" id="i2cIconPanel">
-            <div>
-              <strong>STATIC ICON</strong>
-              <div class="muted" id="i2cIconLimit">Select a display to see the maximum image size.</div>
-            </div>
-            <input id="i2cIconFile" type="file" accept="image/png,image/jpeg,image/webp,image/bmp">
-            <button type="button" id="i2cUploadIcon">UPLOAD + CONVERT</button>
-          </div>
-
-          <div class="i2c-runtime" id="i2cRuntime"></div>
+            <div class="rackdash-update-grid"><div><span>CURRENT</span><strong data-rackdash-update="current">v{{ app_version }}</strong></div><div><span>LATEST</span><strong data-rackdash-update="latest">NOT CHECKED</strong></div><div><span>STATUS</span><strong data-rackdash-update="status">NOT CHECKED</strong></div></div>
+            <div class="rackdash-update-actions"><button class="health-button" id="rackdashUpdateCheck">CHECK RACKDASH UPDATE</button><button class="health-button primary-admin-action" id="rackdashUpdateNow">UPDATE RACKDASH NOW</button></div>
+            <div class="update-auto-settings"><label><input type="checkbox" id="rackdashDailyUpdateCheck"> DAILY RACKDASH UPDATE CHECK</label><label><input type="checkbox" id="pluginsDailyUpdateCheck"> DAILY PLUGIN UPDATE CHECKS</label><button class="health-button" id="saveUpdateCheckSettings">SAVE UPDATE SETTINGS</button></div>
+            <div class="rackdash-update-message muted" id="rackdashUpdateMessage">Manual checks are always available. Automatic checks run once every 24 hours when enabled.</div>
+            <div class="update-last-check muted" id="updateLastCheck"></div>
+          </section>
         </section>
 
-        <section class="surface health-install-panel">
-<div class="section-label">INSTALL THIRD-PARTY PLUGIN</div>
-<div class="health-install-row"><input id="healthInstallUrl" placeholder="https://github.com/owner/rackdash-plugin"><button id="healthInstallButton" type="button">INSTALL</button></div>
-<div class="muted">Repository must contain rackdash-plugin.json. Restart RackDash after install/update.</div>
-<div class="health-install-status" id="healthInstallStatus"></div>
-</section>
-<section class="surface health-plugin-panel">
-          <div class="section-label">INSTALLED PLUGINS</div>
-          <div class="health-plugin-list" id="healthPluginList"></div>
+        <section class="admin-section" id="adminMaintenance">
+          <div class="admin-section-title"><div><span class="eyebrow">MAINTENANCE</span><h2>Backups and diagnostics</h2></div></div>
+          <section class="surface admin-platform-panel">
+            <div class="admin-section-head"><div><div class="section-label">PLATFORM TOOLS</div><div class="muted">Backup, restore, inspect logs, and collect diagnostics.</div></div></div>
+            <div class="platform-tool-grid"><button id="backupDownload">DOWNLOAD BACKUP</button><label class="file-tool">RESTORE BACKUP<input id="backupRestoreFile" type="file" accept=".zip"></label><button id="backupRestore">RESTORE SELECTED</button><button id="adminDiagnostics">DIAGNOSTICS</button><button id="adminLogs">VIEW LOGS</button></div>
+            <div class="platform-output" id="platformOutput"></div>
+          </section>
+        </section>
+
+        <section class="admin-section" id="adminSecurity">
+          <div class="admin-section-title"><div><span class="eyebrow">SECURITY</span><h2>Administration access</h2></div></div>
+          <section class="surface admin-platform-panel">
+            <div class="admin-section-head">
+              <div><div class="section-label">ADMIN SECURITY</div><div class="muted">Protect configuration changes, restarts, updates, plugin management, backups, and hardware controls.</div></div>
+              <div class="health-head-actions"><button class="health-button" id="adminAuthButton">AUTHENTICATION</button><button class="health-button" id="adminLogoutButton">LOG OUT</button></div>
+            </div>
+            <div class="admin-security-status" id="adminSecurityStatus"></div>
+          </section>
         </section>
       </div>
     </section>
@@ -223,7 +198,7 @@
 <div class="settings-backdrop" data-close-settings="true"></div>
 <section class="settings-window"><div class="settings-window-head"><div><span class="eyebrow">RACKDASH SETTINGS</span><h2 id="settingsTitle">Settings</h2></div><button class="settings-close" data-close-settings="true">×</button></div>
 <div class="settings-fields" id="settingsFields"></div><div class="settings-note" id="settingsNote"></div>
-<div class="settings-actions"><button data-close-settings="true">CANCEL</button><button class="primary" id="settingsSave">SAVE</button><button class="primary" id="settingsSaveRestart">SAVE + RESTART</button></div></section></div>
+<div class="settings-actions"><button data-close-settings="true">CANCEL</button><button id="settingsSave">SAVE ONLY</button><button class="primary" id="settingsSaveRestart">SAVE & APPLY</button></div></section></div>
   <footer class="footer">
     <span>PI <b data-system="ip">--</b></span>
     <span>UPTIME <b data-system="uptime">--</b></span>
@@ -246,6 +221,15 @@ window.RackDashPlugins = {};
 </script>
 <script>{{ plugin_js|safe }}</script>
 <script src="/static/app.js?v={{ app_version }}"></script>
+
+<div class="apply-overlay" id="applyOverlay" hidden>
+  <div class="apply-card">
+    <div class="apply-spinner" aria-hidden="true"></div>
+    <span class="eyebrow">APPLYING CHANGES</span>
+    <h2 id="applyTitle">Refreshing RackDash</h2>
+    <p id="applyMessage">Your dashboard will update automatically.</p>
+  </div>
+</div>
 
 <div class="connection-overlay" id="connectionOverlay" hidden>
   <div class="connection-card">

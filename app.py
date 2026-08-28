@@ -10,7 +10,7 @@ from pathlib import Path
 
 import psutil
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, session, send_file
+from flask import Flask, jsonify, make_response, render_template, request, session, send_file
 
 from plugin_manager import PluginManager
 from health import github_update_status
@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "2.4.1"
+APP_VERSION = "2.5.0"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
@@ -183,7 +183,7 @@ i2c_manager.start()
 
 @app.get("/")
 def index():
-    return render_template(
+    response = make_response(render_template(
         "index.html",
         app_name=APP_NAME,
         app_version=APP_VERSION,
@@ -201,7 +201,13 @@ def index():
             "dim_minutes": int(os.getenv("RACKDASH_DIM_MINUTES","0") or 0),
             "developer_mode": os.getenv("RACKDASH_DEVELOPER_MODE","false").lower() in ("1","true","yes","on"),
         },
-    )
+    ))
+    # Dashboard HTML contains plugin HTML/CSS/JS. Never let the browser reuse
+    # stale document markup after a plugin update or display-setting change.
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.get("/api/system")
