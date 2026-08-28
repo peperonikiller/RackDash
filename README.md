@@ -1,5 +1,8 @@
 # RackDash
 
+**Current RackDash version:** `2.6.0`
+
+
 RackDash is a lightweight, plugin-driven dashboard for **rackmount LCDs,
 touchscreen status panels, Raspberry Pis, homelabs, and unusual display
 resolutions**.
@@ -527,46 +530,6 @@ https://github.com/peperonikiller/RackDash/tree/main/plugins
 ```
 
 
-## v2.2.1 update-system fixes
-
-Manual RackDash and plugin update checks now bypass the GitHub status cache so a
-release that was published moments ago is visible immediately.
-
-Version comparison now treats equivalent forms such as `2.0`, `v2.0`, and
-`v2.0.0` as the same version instead of incorrectly reporting the longer local
-form as "ahead."
-
-RackDash self-update prefers a RackDash ZIP attached to the GitHub Release. If
-there is no release asset, it now falls back to GitHub's automatic release
-`zipball_url`. This allows a normal GitHub Release with no attached assets to
-still be installed from Admin.
-
-
-## v2.3.0 daily update checks
-
-The **Check RackDash Update** button now lives inside the RackDash Update
-section instead of the Admin header.
-
-RackDash has two optional automatic checks:
-
-- **Daily RackDash Update Check**
-- **Daily Plugin Update Checks**
-
-When enabled, the RackDash service performs the corresponding check at most
-once every 24 hours. Enabling a check for the first time causes the service to
-perform its first check shortly afterward.
-
-Automatic checks only detect updates. They never install RackDash or plugin
-updates automatically.
-
-Update results are saved to `data/update_checks.json`, so the Admin page keeps
-showing the last result after a browser refresh, service restart, or Pi reboot.
-The Admin page also shows whether the last check was automatic or manual and
-when it occurred.
-
-**Check RackDash Update** and **Check All Updates** remain manual controls and
-always perform fresh GitHub checks.
-
 ## Uptime Kuma Plugin
 
 The Uptime Kuma plugin provides a compact homelab/service-health view with
@@ -628,18 +591,3 @@ installation permits Basic Auth for `/metrics`.
 Metrics mode exposes current monitor status and response time. It does not
 provide the same 24-hour uptime and heartbeat history available through the
 published Status Page endpoints.
-
-
-
-## v2.4.1 I2C Admin Hotfix
-
-Fixed the I2C Display dropdown in Admin.
-
-The display controller list was already provided by the RackDash backend, and
-the frontend had a `loadI2C()` function capable of populating the dropdown, but
-that function was never called when the Admin page loaded. As a result, the
-Display selector appeared empty even though RackDash supported SH1106, SH1107,
-SSD1306, SSD1309, SSD1325, and SSD1327 presets.
-
-Admin now loads the I2C controller/size list whenever the Health/Admin page is
-loaded.
