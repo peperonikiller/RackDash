@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
-PLUGIN_VERSION = "1.1.2"
+PLUGIN_VERSION = "1.1.3"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/f1.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -597,6 +597,8 @@ window.RackDashPlugins.f1={
     if(!data.available){root.querySelector('[data-role="name"]').textContent="No upcoming race";root.querySelector('[data-role="sessions"]').innerHTML=`<div class="empty-state">Weekend schedule unavailable.</div>`;return}
     root.querySelector('[data-role="name"]').textContent=data.name;const location=[data.city,data.country].filter(Boolean).join(" • ");root.querySelector('[data-role="race-location"]').textContent=[data.circuit,location].filter(Boolean).join(" • ");root.querySelector('[data-role="track-location"]').textContent=location;root.querySelector('[data-role="circuit"]').textContent=data.circuit||"";root.querySelector('[data-role="round"]').textContent=`ROUND ${data.round}`;root.querySelector('[data-role="date"]').textContent=data.date;root.querySelector('[data-role="time"]').textContent=data.time;
     const sec=Number(data.countdown||0);root.querySelector('[data-role="countdown"]').textContent=`${Math.floor(sec/86400)}d ${Math.floor((sec%86400)/3600)}h ${Math.floor((sec%3600)/60)}m`;root.querySelector('[data-role="sessions"]').innerHTML=this.sessions(data.sessions);
+    const weather=root.querySelector('[data-role="race-weather"]');
+    if(weather)weather.innerHTML=this.weather(data.race_weather);
     const host=root.querySelector('[data-role="track"]');if(!data.track_key)return;
     try{const response=await fetch(`/api/plugin/f1/track/${encodeURIComponent(data.track_key)}.svg`);if(!response.ok)return;host.innerHTML=await response.text();const svg=host.querySelector("svg");if(!svg)return;svg.removeAttribute("width");svg.removeAttribute("height");svg.setAttribute("preserveAspectRatio","xMidYMid meet");requestAnimationFrame(()=>{try{const box=(svg.querySelector("g")||svg).getBBox(),pad=Math.max(box.width,box.height)*.035;svg.setAttribute("viewBox",`${box.x-pad} ${box.y-pad} ${box.width+pad*2} ${box.height+pad*2}`)}catch(e){}this.animateTrack(svg)})}catch(e){}
   }
