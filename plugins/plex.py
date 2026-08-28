@@ -8,7 +8,7 @@ from flask import Response, request
 PLUGIN_ID = "plex"
 PLUGIN_NAME = "Plex"
 PLUGIN_VERSION = "1.0.0"
-PLUGIN_GITHUB = "https://github.com/YOUR_GITHUB_USERNAME/RackDash"
+PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 20
 PLUGIN_REFRESH_SECONDS = 3
 PLUGIN_ACCENT = "#e5a00d"

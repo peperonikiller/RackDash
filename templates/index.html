@@ -67,7 +67,7 @@
             <h1>Admin</h1>
             <div class="muted">System controls, plugin health, GitHub updates, and auxiliary displays.</div>
           </div>
-          <div class="health-head-actions"><button type="button" class="health-button health-restart" id="healthRestart">RESTART RACKDASH</button><button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button><button type="button" class="health-check-all" id="healthCheckAll">CHECK ALL UPDATES</button></div>
+          <div class="health-head-actions"><button type="button" class="health-button rackdash-update" id="rackdashUpdateCheck">CHECK RACKDASH UPDATE</button><button type="button" class="health-button health-restart" id="healthRestart">RESTART RACKDASH</button><button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button><button type="button" class="health-check-all" id="healthCheckAll">CHECK ALL UPDATES</button></div>
         </div>
 
         <div class="health-summary" id="healthSummary">
@@ -79,6 +79,25 @@
           <article class="metric"><label>ISSUES</label><strong data-health="issue-count">--</strong><small>need attention</small></article>
         </div>
 
+
+
+        <section class="surface rackdash-update-panel" id="rackdashUpdatePanel">
+          <div class="admin-section-head">
+            <div>
+              <div class="section-label">RACKDASH UPDATE</div>
+              <div class="muted">Check the official GitHub repository for a newer RackDash release or tag.</div>
+            </div>
+            <a class="health-button" href="https://github.com/peperonikiller/RackDash" target="_blank" rel="noopener">GITHUB</a>
+          </div>
+          <div class="rackdash-update-grid">
+            <div><span>CURRENT</span><strong data-rackdash-update="current">v{{ app_version }}</strong></div>
+            <div><span>LATEST</span><strong data-rackdash-update="latest">NOT CHECKED</strong></div>
+            <div><span>STATUS</span><strong data-rackdash-update="status">NOT CHECKED</strong></div>
+          </div>
+          <div class="rackdash-update-message muted" id="rackdashUpdateMessage">
+            Update checks run only when you press CHECK RACKDASH UPDATE.
+          </div>
+        </section>
 
         <section class="surface admin-i2c-panel">
           <div class="admin-section-head">

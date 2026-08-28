@@ -7,7 +7,7 @@ import requests
 PLUGIN_ID = "bitaxe"
 PLUGIN_NAME = "Bitaxe"
 PLUGIN_VERSION = "1.0.0"
-PLUGIN_GITHUB = "https://github.com/YOUR_GITHUB_USERNAME/RackDash"
+PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 60
 PLUGIN_REFRESH_SECONDS = 2
 PLUGIN_ACCENT = "#f6b73c"

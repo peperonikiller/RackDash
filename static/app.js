@@ -3,6 +3,7 @@
 
   const cfg = window.RACKDASH_CONFIG || {plugins:[], rotateSeconds:12};
   const pluginMeta = cfg.plugins || [];
+  // Admin is intentionally manual-only and is not part of this rotation list.
   const pluginIds = pluginMeta.map(p => p.id);
   const pluginById = Object.fromEntries(pluginMeta.map(p => [p.id,p]));
 
@@ -355,6 +356,38 @@
   function openSettings(title,fields,endpoint){settingsEndpoint=endpoint;document.getElementById("settingsTitle").textContent=title;document.getElementById("settingsFields").innerHTML=(fields||[]).map(fieldHtml).join("")||`<div class="muted">No configurable settings.</div>`;document.getElementById("settingsNote").textContent="";document.getElementById("settingsModal").hidden=false;}
   function closeSettings(){document.getElementById("settingsModal").hidden=true;settingsEndpoint=null;}
   document.querySelectorAll("[data-close-settings]").forEach(el=>el.addEventListener("click",closeSettings));
+
+  async function checkRackDashUpdate(){
+    const button=document.getElementById("rackdashUpdateCheck");
+    const current=document.querySelector('[data-rackdash-update="current"]');
+    const latest=document.querySelector('[data-rackdash-update="latest"]');
+    const status=document.querySelector('[data-rackdash-update="status"]');
+    const message=document.getElementById("rackdashUpdateMessage");
+    if(button){button.disabled=true;button.textContent="CHECKING...";}
+    if(status){status.textContent="CHECKING";status.className="";}
+    if(message)message.textContent="Contacting GitHub...";
+    try{
+      const response=await fetch("/api/health/rackdash/update",{cache:"no-store"});
+      const data=await response.json();
+      if(!data.ok)throw new Error(data.error||"Update check failed");
+      const u=data.update||{};
+      if(current)current.textContent=`v${data.current||"--"}`;
+      if(latest)latest.textContent=u.latest||"NO RELEASE/TAG";
+      if(status){
+        status.textContent=(u.status||"unknown").replaceAll("_"," ").toUpperCase();
+        status.className=u.status||"";
+      }
+      if(message)message.textContent=u.message||"Update status unavailable.";
+    }catch(e){
+      if(status){status.textContent="ERROR";status.className="error";}
+      if(message)message.textContent=e.message;
+    }finally{
+      if(button){button.disabled=false;button.textContent="CHECK RACKDASH UPDATE";}
+    }
+  }
+
+  document.getElementById("rackdashUpdateCheck")?.addEventListener("click",checkRackDashUpdate);
+
   document.getElementById("healthRestart")?.addEventListener("click",async()=>{
     if(!confirm("Restart the RackDash server now?"))return;
     const button=document.getElementById("healthRestart");

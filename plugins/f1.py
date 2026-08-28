@@ -10,7 +10,7 @@ from _shared import TTLCache
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
 PLUGIN_VERSION = "1.0.0"
-PLUGIN_GITHUB = "https://github.com/YOUR_GITHUB_USERNAME/RackDash"
+PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 40
 PLUGIN_REFRESH_SECONDS = 300
 PLUGIN_ACCENT = "#e5a00d"

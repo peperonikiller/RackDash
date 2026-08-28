@@ -6,7 +6,7 @@ from _shared import TTLCache
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
 PLUGIN_VERSION = "1.0.0"
-PLUGIN_GITHUB = "https://github.com/YOUR_GITHUB_USERNAME/RackDash"
+PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 30
 PLUGIN_REFRESH_SECONDS = 300
 PLUGIN_ACCENT = "#6fb7ff"

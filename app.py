@@ -22,7 +22,8 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.6.0"
+RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
 CORE_CONFIG = [
@@ -172,6 +173,7 @@ def api_health():
         "app": {
             "name": APP_NAME,
             "version": APP_VERSION,
+            "github_url": RACKDASH_GITHUB,
             "plugin_count": len(rows),
             "config_fields": schema_values(BASE_DIR / "config.env", CORE_CONFIG),
         },
@@ -275,6 +277,25 @@ def api_health_plugin_test(plugin_id: str):
             "error": plugin.public_error,
             "health": plugins.runtime_health(plugin, env_values),
         }), 200
+@app.get("/api/health/rackdash/update")
+def api_health_rackdash_update():
+    try:
+        result = github_update_status(RACKDASH_GITHUB, APP_VERSION)
+        return jsonify({
+            "ok": True,
+            "current": APP_VERSION,
+            "github_url": RACKDASH_GITHUB,
+            "update": result,
+        })
+    except Exception:
+        app.logger.exception("RackDash update check failed")
+        return jsonify({
+            "ok": False,
+            "current": APP_VERSION,
+            "github_url": RACKDASH_GITHUB,
+            "error": "Unable to check GitHub for RackDash updates",
+        }), 200
+
 
 @app.get("/api/admin/i2c")
 def api_admin_i2c():

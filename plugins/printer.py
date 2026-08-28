@@ -5,7 +5,7 @@ import requests
 PLUGIN_ID = "printer"
 PLUGIN_NAME = "3D Printer"
 PLUGIN_VERSION = "1.0.0"
-PLUGIN_GITHUB = "https://github.com/YOUR_GITHUB_USERNAME/RackDash"
+PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 50
 PLUGIN_REFRESH_SECONDS = 2
 PLUGIN_ACCENT = "#6fb7ff"
