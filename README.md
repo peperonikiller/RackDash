@@ -18,9 +18,8 @@ where **every top-level Python file placed in `plugins/` becomes a tab**.
 - Formula 1
 - Klipper / Moonraker 3D printer
 - Bitaxe / AxeOS
-
-Spotify was intentionally removed. RackDash favors unattended integrations
-that do not require frequent interactive reauthorization.
+- Serverspy
+- Twitch
 
 ## Features
 
