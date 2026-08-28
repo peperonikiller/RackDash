@@ -11,7 +11,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -139,7 +139,7 @@ PLUGIN_HTML = r"""
       </div>
 
       <div class="wx-radar-footer">
-        <span><a class="wx-source-link" href="https://www.rainviewer.com/" target="_blank" rel="noopener noreferrer">RainViewer radar</a> · <a class="wx-source-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
+        <span><a class="wx-source-link" data-role="radar-source" href="https://librewxr.net/" target="_blank" rel="noopener noreferrer">LibreWXR radar</a> · <a class="wx-source-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
         <div class="wx-radar-legend">
           <span>Light</span>
           <i></i>
@@ -672,11 +672,18 @@ window.RackDashPlugins.weather={
     host.innerHTML=parts.join("");
   },
 
-  radarUrl(data,frame){
-    if(!data.radar?.host||!frame?.path)return "";
+  radarUrl(data,provider,frame){
+    if(!provider?.host||!frame?.path)return "";
     const lat=Number(data.latitude).toFixed(5);
     const lon=Number(data.longitude).toFixed(5);
-    return `${data.radar.host}${frame.path}/512/7/${lat}/${lon}/2/1_1.png`;
+    return `${provider.host}${frame.path}/512/7/${lat}/${lon}/2/1_1.png`;
+  },
+
+  setRadarSource(root,provider){
+    const link=root.querySelector('[data-role="radar-source"]');
+    if(!link||!provider)return;
+    link.textContent=`${provider.name} radar`;
+    link.href=provider.homepage||"#";
   },
 
   startRadar(data,root){
@@ -685,39 +692,89 @@ window.RackDashPlugins.weather={
       this.radarTimer=null;
     }
 
-    const frames=data.radar?.frames||[];
+    const providers=data.radar?.providers||[];
     const overlay=root.querySelector('[data-role="radar-overlay"]');
     const unavailable=root.querySelector('[data-role="radar-unavailable"]');
     const timeNode=root.querySelector('[data-role="radar-time"]');
 
     this.renderBaseMap(root,Number(data.latitude),Number(data.longitude),7);
 
-    if(!frames.length||!overlay){
+    if(!providers.length||!overlay){
       if(unavailable)unavailable.hidden=false;
       return;
     }
 
     if(unavailable)unavailable.hidden=true;
 
-    const signature=frames.map(f=>f.time).join(",");
+    let providerIndex=Math.min(this.radarProviderIndex||0,providers.length-1);
+    let provider=providers[providerIndex];
+    let frames=provider.frames||[];
+
+    if(!frames.length){
+      providerIndex=0;
+      provider=providers[0];
+      frames=provider.frames||[];
+    }
+
+    if(!frames.length){
+      if(unavailable)unavailable.hidden=false;
+      return;
+    }
+
+    this.radarProviderIndex=providerIndex;
+    this.setRadarSource(root,provider);
+
+    const signature=`${provider.name}:`+frames.map(f=>f.time).join(",");
     if(signature!==this.radarSignature){
       this.radarFrame=Math.max(0,frames.length-8);
       this.radarSignature=signature;
     }
 
     const draw=()=>{
+      provider=providers[this.radarProviderIndex]||providers[0];
+      frames=provider.frames||[];
+
+      if(!frames.length){
+        if(unavailable)unavailable.hidden=false;
+        return;
+      }
+
       const frame=frames[this.radarFrame%frames.length];
       overlay.style.opacity=".25";
 
       const next=new Image();
+
       next.onload=()=>{
         overlay.src=next.src;
         overlay.style.opacity=".82";
+        if(unavailable)unavailable.hidden=true;
+        this.setRadarSource(root,provider);
       };
+
       next.onerror=()=>{
         overlay.style.opacity=".82";
+
+        // Metadata may be healthy while a provider's image endpoint is not.
+        // Move to the next provider automatically instead of leaving a dead
+        // radar panel.
+        if(providers.length>1){
+          this.radarProviderIndex=(this.radarProviderIndex+1)%providers.length;
+          const fallback=providers[this.radarProviderIndex];
+          const fallbackFrames=fallback.frames||[];
+
+          if(fallbackFrames.length){
+            this.radarFrame=Math.max(0,fallbackFrames.length-8);
+            this.radarSignature="";
+            this.setRadarSource(root,fallback);
+          }else if(unavailable){
+            unavailable.hidden=false;
+          }
+        }else if(unavailable){
+          unavailable.hidden=false;
+        }
       };
-      next.src=this.radarUrl(data,frame);
+
+      next.src=this.radarUrl(data,provider,frame);
 
       if(timeNode){
         const d=new Date(Number(frame.time)*1000);
@@ -867,41 +924,78 @@ def _geocode():
     return dict(result)
 
 
-def _radar():
-    cached = _radar_cache.get()
-    if cached is not None:
-        return dict(cached)
-
+def _radar_provider(name, api_url, homepage):
     try:
         response = requests.get(
-            "https://api.rainviewer.com/public/weather-maps.json",
-            timeout=5,
-            headers={"User-Agent": "RackDash-Weather/1.1.0"},
+            api_url,
+            timeout=6,
+            headers={
+                "User-Agent": "RackDash-Weather/1.1.1",
+                "Accept": "application/json",
+            },
         )
         response.raise_for_status()
         payload = response.json()
 
         radar = payload.get("radar") or {}
-        past = radar.get("past") or []
+        frames_raw = radar.get("past") or []
 
+        # Some compatible services also expose nowcast. We deliberately keep
+        # observed/past radar only so the animation is actual radar history.
         frames = [
             {
                 "time": int(frame.get("time") or 0),
                 "path": str(frame.get("path") or ""),
             }
-            for frame in past[-12:]
+            for frame in frames_raw[-12:]
             if frame.get("path")
         ]
 
-        result = {
-            "host": str(payload.get("host") or ""),
+        host = str(payload.get("host") or "").rstrip("/")
+
+        if not host or not frames:
+            return None
+
+        return {
+            "name": name,
+            "homepage": homepage,
+            "host": host,
             "frames": frames,
         }
+
     except Exception:
-        result = {
-            "host": "",
-            "frames": [],
-        }
+        return None
+
+
+def _radar():
+    cached = _radar_cache.get()
+    if cached is not None:
+        return dict(cached)
+
+    # LibreWXR is now the preferred source. It intentionally implements the
+    # RainViewer v2 metadata/tile contract and currently provides public global
+    # radar composites. RainViewer remains as an automatic fallback.
+    providers = []
+
+    libre = _radar_provider(
+        "LibreWXR",
+        "https://api.librewxr.net/public/weather-maps.json",
+        "https://librewxr.net/",
+    )
+    if libre:
+        providers.append(libre)
+
+    rainviewer = _radar_provider(
+        "RainViewer",
+        "https://api.rainviewer.com/public/weather-maps.json",
+        "https://www.rainviewer.com/",
+    )
+    if rainviewer:
+        providers.append(rainviewer)
+
+    result = {
+        "providers": providers,
+    }
 
     _radar_cache.set(result)
     return dict(result)
