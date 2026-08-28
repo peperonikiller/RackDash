@@ -163,14 +163,6 @@ PLUGIN_GITHUB = "https://github.com/owner/repository"
 RackDash checks GitHub's latest release first and falls back to the repository's
 latest tag. Results are cached for 15 minutes.
 
-The built-in plugins ship with a placeholder RackDash repository URL. Before
-publishing your fork, replace:
-
-```text
-https://github.com/YOUR_GITHUB_USERNAME/RackDash
-```
-
-with your actual repository URL.
 
 
 ## Plugin configuration API
@@ -211,10 +203,6 @@ If the browser loses the RackDash backend, it shows a connection-lost overlay
 and checks `/api/system` every 30 seconds. When the server is reachable again,
 the page reloads automatically.
 
-## Formula 1 standings
-
-The F1 plugin now includes the top five Driver Championship standings and the
-full Constructor Championship table, up to all 11 teams.
 
 
 ## Live plugin diagnostics
