@@ -11,7 +11,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "printer"
 PLUGIN_NAME = "3D Printer"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/printer.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -174,7 +174,7 @@ PLUGIN_CSS = r'''
 .plugin-printer .printer-shell{display:grid;gap:var(--gap)}
 .plugin-printer .printer-hero{
   display:grid;
-  grid-template-columns:minmax(0,1.55fr) minmax(180px,.45fr);
+  grid-template-columns:minmax(0,1fr) minmax(180px,22rem);
   gap:var(--gap);
   align-items:stretch;
   border-left:3px solid var(--printer);
@@ -196,8 +196,27 @@ PLUGIN_CSS = r'''
 .plugin-printer .printer-progress-meta{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:.55rem;align-items:center;margin-top:.35rem;color:var(--muted);font-size:.48rem}
 .plugin-printer .printer-progress-meta strong{font-size:.72rem;color:#fff}
 
-.plugin-printer .printer-preview{position:relative;min-height:13rem;border-radius:.55rem;overflow:hidden;background:#10171c;border:1px solid rgba(111,183,255,.12)}
-.plugin-printer .printer-preview img{width:100%;height:100%;object-fit:contain;display:none;background:radial-gradient(circle at center,rgba(111,183,255,.06),transparent 58%)}
+.plugin-printer .printer-preview{
+  position:relative;
+  width:min(100%,22rem);
+  height:13rem;
+  max-height:13rem;
+  justify-self:end;
+  align-self:center;
+  border-radius:.55rem;
+  overflow:hidden;
+  background:#10171c;
+  border:1px solid rgba(111,183,255,.12);
+}
+.plugin-printer .printer-preview img{
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  display:none;
+  background:radial-gradient(circle at center,rgba(111,183,255,.06),transparent 58%);
+}
 .plugin-printer .printer-preview.has-image img{display:block}
 .plugin-printer .printer-preview-empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:.22rem;color:var(--muted)}
 .plugin-printer .printer-preview.has-image .printer-preview-empty{display:none}
@@ -249,6 +268,7 @@ PLUGIN_CSS = r'''
 }
 @media(max-width:700px){
   .plugin-printer .printer-hero{grid-template-columns:1fr}
+  .plugin-printer .printer-preview{width:100%;max-width:22rem;justify-self:start}
   .plugin-printer .printer-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
   .plugin-printer .printer-progress-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
