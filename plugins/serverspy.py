@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "serverspy"
 PLUGIN_NAME = "ServerSpy"
-PLUGIN_VERSION = "1.1.1"
+PLUGIN_VERSION = "1.1.2"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/serverspy.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -537,7 +537,10 @@ def _fetch_info(config):
     if cached is not None and _info_cache_key == key:
         return dict(cached)
 
-    base_request = A2S_SINGLE + b"T" + A2S_INFO_BODY
+    # Exact Valve A2S_INFO wire format:
+    # FF FF FF FF 54 "Source Engine Query" 00
+    # A challenge, when requested by the server, is appended after the NUL.
+    base_request = A2S_SINGLE + A2S_INFO_BODY
 
     result = _query_with_challenge(
         config["host"],
