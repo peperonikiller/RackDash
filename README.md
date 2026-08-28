@@ -151,8 +151,6 @@ and, if one does not already exist:
 config.env
 ```
 
-Your existing `config.env` is not meant to be committed to GitHub.
-
 ---
 
 ## 4. Configure RackDash
