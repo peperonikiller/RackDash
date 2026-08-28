@@ -6,14 +6,13 @@ import socket
 import struct
 import time
 import zlib
-from dataclasses import dataclass
 
 from _shared import TTLCache
 
 
 PLUGIN_ID = "serverspy"
 PLUGIN_NAME = "ServerSpy"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/serverspy.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -53,8 +52,22 @@ PLUGIN_CONFIG = [
         "default": "cs2",
         "required": True,
         "options": [
-            {"value": key, "label": value[0]}
-            for key, value in GAME_PRESETS.items()
+            {"value": "cs2", "label": "Counter-Strike 2"},
+            {"value": "csgo", "label": "Counter-Strike: Global Offensive"},
+            {"value": "css", "label": "Counter-Strike: Source"},
+            {"value": "tf2", "label": "Team Fortress 2"},
+            {"value": "gmod", "label": "Garry's Mod"},
+            {"value": "l4d", "label": "Left 4 Dead"},
+            {"value": "l4d2", "label": "Left 4 Dead 2"},
+            {"value": "dods", "label": "Day of Defeat: Source"},
+            {"value": "hl2dm", "label": "Half-Life 2: Deathmatch"},
+            {"value": "portal2", "label": "Portal 2"},
+            {"value": "alien_swarm", "label": "Alien Swarm"},
+            {"value": "black_mesa", "label": "Black Mesa"},
+            {"value": "synergy", "label": "Synergy"},
+            {"value": "insurgency", "label": "Insurgency (2014)"},
+            {"value": "fistful_of_frags", "label": "Fistful of Frags"},
+            {"value": "source_generic", "label": "Source / Source 2 (Generic A2S)"},
         ],
         "help": "ServerSpy is restricted to Source and Source 2 servers using Valve A2S queries.",
     },
@@ -189,10 +202,14 @@ MAX_SPLIT_PACKETS = 32
 MAX_RESPONSE_BYTES = 512 * 1024
 
 
-@dataclass
 class QueryResponse:
-    payload: bytes
-    ping_ms: float
+    """Small response container that is safe under RackDash's plugin loader."""
+
+    __slots__ = ("payload", "ping_ms")
+
+    def __init__(self, payload, ping_ms):
+        self.payload = payload
+        self.ping_ms = ping_ms
 
 
 def _bool_env(name, default="false"):
