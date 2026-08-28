@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "1.1.2"
+PLUGIN_VERSION = "1.1.3"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -359,6 +359,9 @@ PLUGIN_CSS = r"""
   color:var(--muted);
   font-size:.55rem;
   background:rgba(12,18,22,.74);
+}
+.plugin-weather .wx-radar-unavailable[hidden]{
+  display:none!important;
 }
 .plugin-weather .wx-radar-footer{
   display:flex;
