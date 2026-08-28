@@ -10,7 +10,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "pihole"
 PLUGIN_NAME = "Pi-hole"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/pihole.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -343,27 +343,162 @@ def _detail_data():
     return dict(result)
 
 
+def _scalar_text(value):
+    if value is None:
+        return ""
+
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+
+    return ""
+
+
+def _version_from_object(value):
+    """
+    Pi-hole v6 /api/info/version returns nested objects whose values may
+    themselves be dictionaries such as local/remote version metadata.
+    Extract a human-readable version string without ever stringifying the
+    entire Python object into the dashboard.
+    """
+    if isinstance(value, (str, int, float)):
+        return str(value)
+
+    if not isinstance(value, dict):
+        return ""
+
+    # Prefer direct version-ish fields.
+    for key in ("version", "local_version", "current", "tag"):
+        candidate = _scalar_text(value.get(key))
+        if candidate:
+            return candidate
+
+    # Pi-hole v6 commonly nests version info under local/remote.
+    local = value.get("local")
+    if isinstance(local, dict):
+        for key in ("version", "tag"):
+            candidate = _scalar_text(local.get(key))
+            if candidate:
+                return candidate
+
+    remote = value.get("remote")
+    if isinstance(remote, dict):
+        for key in ("version", "tag"):
+            candidate = _scalar_text(remote.get(key))
+            if candidate:
+                return candidate
+
+    return ""
+
+
+def _host_from_object(payload):
+    if not isinstance(payload, dict):
+        return ""
+
+    # v6 may return host metadata as a nested object.
+    for key in ("hostname", "host", "name"):
+        candidate = _scalar_text(payload.get(key))
+        if candidate:
+            return candidate
+
+    for key in ("system", "host"):
+        nested = payload.get(key)
+        if isinstance(nested, dict):
+            for subkey in ("hostname", "host", "name"):
+                candidate = _scalar_text(nested.get(subkey))
+                if candidate:
+                    return candidate
+
+    return ""
+
+
 def _system_data():
     cached = _system_cache.get()
     if cached is not None:
         return dict(cached)
-    blocking_payload = _safe_get("/api/dns/blocking", {})
-    version_payload = _safe_get("/api/info/version", {})
-    host_payload = _safe_get("/api/info/host", {})
-    blocking = blocking_payload.get("blocking") if isinstance(blocking_payload, dict) and isinstance(blocking_payload.get("blocking"), bool) else None
-    host = ""
-    if isinstance(host_payload, dict):
-        host = host_payload.get("hostname") or host_payload.get("host") or host_payload.get("name") or ""
-    pihole_version = ftl_version = web_version = api_version = ""
+
+    blocking_payload = _safe_get(
+        "/api/dns/blocking",
+        {},
+    )
+    version_payload = _safe_get(
+        "/api/info/version",
+        {},
+    )
+    host_payload = _safe_get(
+        "/api/info/host",
+        {},
+    )
+
+    blocking = None
+    if isinstance(blocking_payload, dict):
+        value = blocking_payload.get("blocking")
+
+        if isinstance(value, bool):
+            blocking = value
+        elif isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in ("enabled", "true", "on"):
+                blocking = True
+            elif lowered in ("disabled", "false", "off"):
+                blocking = False
+
+    host = _host_from_object(host_payload)
+
+    pihole_version = ""
+    ftl_version = ""
+    web_version = ""
+    api_version = ""
+
     if isinstance(version_payload, dict):
-        core = version_payload.get("core") if isinstance(version_payload.get("core"), dict) else {}
-        web = version_payload.get("web") if isinstance(version_payload.get("web"), dict) else {}
-        ftl = version_payload.get("ftl") if isinstance(version_payload.get("ftl"), dict) else {}
-        pihole_version = str(core.get("version") or version_payload.get("version") or version_payload.get("core_version") or "")
-        web_version = str(web.get("version") or version_payload.get("web_version") or "")
-        ftl_version = str(ftl.get("version") or version_payload.get("ftl_version") or "")
-        api_version = str(version_payload.get("api_version") or version_payload.get("api") or "")
-    result = {"blocking": blocking, "host": host, "pihole_version": pihole_version, "ftl_version": ftl_version, "web_version": web_version, "api_version": api_version}
+        # Pi-hole v6 can expose these as rich nested dictionaries.
+        pihole_version = _version_from_object(
+            version_payload.get("core")
+            or version_payload.get("pihole")
+        )
+
+        ftl_version = _version_from_object(
+            version_payload.get("ftl")
+        )
+
+        web_version = _version_from_object(
+            version_payload.get("web")
+        )
+
+        api_version = _version_from_object(
+            version_payload.get("api")
+        )
+
+        # Flat-field fallbacks for other v6 revisions.
+        if not pihole_version:
+            pihole_version = _scalar_text(
+                version_payload.get("core_version")
+                or version_payload.get("version")
+            )
+
+        if not ftl_version:
+            ftl_version = _scalar_text(
+                version_payload.get("ftl_version")
+            )
+
+        if not web_version:
+            web_version = _scalar_text(
+                version_payload.get("web_version")
+            )
+
+        if not api_version:
+            api_version = _scalar_text(
+                version_payload.get("api_version")
+            )
+
+    result = {
+        "blocking": blocking,
+        "host": host,
+        "pihole_version": pihole_version,
+        "ftl_version": ftl_version,
+        "web_version": web_version,
+        "api_version": api_version,
+    }
+
     _system_cache.set(result)
     return dict(result)
 
