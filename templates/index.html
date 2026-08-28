@@ -154,8 +154,8 @@
             </div>
             <div class="rackdash-update-grid"><div><span>CURRENT</span><strong data-rackdash-update="current">v{{ app_version }}</strong></div><div><span>LATEST</span><strong data-rackdash-update="latest">NOT CHECKED</strong></div><div><span>STATUS</span><strong data-rackdash-update="status">NOT CHECKED</strong></div></div>
             <div class="rackdash-update-actions"><button class="health-button" id="rackdashUpdateCheck">CHECK RACKDASH UPDATE</button><button class="health-button primary-admin-action" id="rackdashUpdateNow">UPDATE RACKDASH NOW</button></div>
-            <div class="update-auto-settings"><label><input type="checkbox" id="rackdashDailyUpdateCheck"> DAILY RACKDASH UPDATE CHECK</label><label><input type="checkbox" id="pluginsDailyUpdateCheck"> DAILY PLUGIN UPDATE CHECKS</label><button class="health-button" id="saveUpdateCheckSettings">SAVE UPDATE SETTINGS</button></div>
-            <div class="rackdash-update-message muted" id="rackdashUpdateMessage">Manual checks are always available. Automatic checks run once every 24 hours when enabled.</div>
+            <div class="update-auto-settings"><label><input type="checkbox" id="automaticUpdateCheck"> AUTOMATICALLY CHECK FOR UPDATES</label><button class="health-button" id="saveUpdateCheckSettings">SAVE UPDATE SETTINGS</button></div>
+            <div class="rackdash-update-message muted" id="rackdashUpdateMessage">Manual checks are always available. When enabled, RackDash checks the core and all supported plugins once every 24 hours.</div>
             <div class="update-last-check muted" id="updateLastCheck"></div>
           </section>
         </section>

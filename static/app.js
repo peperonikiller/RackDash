@@ -396,10 +396,10 @@
     const settings=updates.settings||{};
     const core=updates.core||{};
 
-    const coreDaily=document.getElementById("rackdashDailyUpdateCheck");
-    const pluginsDaily=document.getElementById("pluginsDailyUpdateCheck");
-    if(coreDaily)coreDaily.checked=!!settings.core_daily;
-    if(pluginsDaily)pluginsDaily.checked=!!settings.plugins_daily;
+    const automaticUpdates=document.getElementById("automaticUpdateCheck");
+    if(automaticUpdates){
+      automaticUpdates.checked=!!settings.core_daily&&!!settings.plugins_daily;
+    }
 
     if(core.ok&&core.result){
       const loadedVersion=data.app?.version||core.result.current||"";
@@ -720,8 +720,8 @@
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          core_daily:!!document.getElementById("rackdashDailyUpdateCheck")?.checked,
-          plugins_daily:!!document.getElementById("pluginsDailyUpdateCheck")?.checked
+          core_daily:!!document.getElementById("automaticUpdateCheck")?.checked,
+          plugins_daily:!!document.getElementById("automaticUpdateCheck")?.checked
         })
       });
       const result=await response.json();
@@ -729,11 +729,9 @@
         result.error||"Unable to save update settings"
       );
       message.textContent=
-        `Automatic checks saved. RackDash: ${
-          result.settings.core_daily?"daily":"manual only"
-        } · Plugins: ${
-          result.settings.plugins_daily?"daily":"manual only"
-        }.`;
+        result.settings.core_daily&&result.settings.plugins_daily
+          ?"Automatic update checks enabled. RackDash will check the core and supported plugins every 24 hours."
+          :"Automatic update checks disabled. Manual update checks remain available.";
     }catch(error){
       message.textContent=error.message;
     }finally{
