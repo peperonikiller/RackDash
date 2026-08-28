@@ -22,12 +22,13 @@ from backup_manager import BackupManager
 from core_updater import CoreUpdater
 from admin_diagnostics import diagnostics, tail_file
 from official_plugin_updater import OfficialPluginUpdater
+from update_monitor import UpdateMonitor
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "2.2.1"
+APP_VERSION = "2.3.0"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
@@ -43,6 +44,8 @@ CORE_CONFIG = [
     {"key":"RACKDASH_BURN_IN_SECONDS","label":"Pixel Shift Interval","type":"number","default":"90","min":30,"max":3600},
     {"key":"RACKDASH_DIM_MINUTES","label":"Dim After Minutes","type":"number","default":"0","min":0,"max":1440,"help":"0 disables idle dimming."},
     {"key":"RACKDASH_DEVELOPER_MODE","label":"Developer Mode","type":"checkbox","default":"false"},
+    {"key":"RACKDASH_DAILY_UPDATE_CHECK","label":"Daily RackDash Update Check","type":"checkbox","default":"false","help":"Check GitHub for a newer RackDash release once every 24 hours."},
+    {"key":"PLUGINS_DAILY_UPDATE_CHECK","label":"Daily Plugin Update Checks","type":"checkbox","default":"false","help":"Check official and third-party plugins for updates once every 24 hours."},
 ]
 
 def discover_config_schemas(plugin_dir: Path):
@@ -88,6 +91,45 @@ _file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s
 _file_handler.setLevel(logging.INFO)
 app.logger.addHandler(_file_handler)
 app.logger.setLevel(logging.INFO)
+
+
+def _check_core_update_now():
+    return github_update_status(
+        RACKDASH_GITHUB,
+        APP_VERSION,
+        force=True,
+    )
+
+
+def _check_plugin_update_now(plugin):
+    if plugin.official:
+        if not plugin.source_path:
+            raise ValueError(
+                "Official plugin is missing PLUGIN_SOURCE_PATH"
+            )
+        return official_plugin_updater.check(
+            plugin.id,
+            plugin.source_path,
+            plugin.plugin_version,
+            force=True,
+        )
+
+    return github_update_status(
+        plugin.github_url,
+        plugin.plugin_version,
+        force=True,
+    )
+
+
+update_monitor = UpdateMonitor(
+    BASE_DIR / "config.env",
+    BASE_DIR / "data" / "update_checks.json",
+    core_checker=_check_core_update_now,
+    plugin_provider=lambda: list(plugins._plugins),
+    plugin_checker=_check_plugin_update_now,
+    logger=app.logger,
+)
+update_monitor.start()
 
 
 def local_ip() -> str:
@@ -217,6 +259,7 @@ def api_health():
             "min_rackdash": plugin.min_rackdash,
             "max_rackdash": plugin.max_rackdash,
             "backups": plugin_installer.backups(plugin.id)[:5],
+            "update_status": update_monitor.plugin_status(plugin.id),
         })
 
     return jsonify({
@@ -224,6 +267,7 @@ def api_health():
         "admin_auth": admin_security.status(),
         "diagnostics": diagnostics(BASE_DIR),
         "backups": backup_manager.list()[:10],
+        "updates": update_monitor.status(),
         "i2c": i2c_manager.status(),
         "plugins": rows,
         "app": {
@@ -238,40 +282,26 @@ def api_health():
 
 @app.get("/api/health/plugin/<plugin_id>/update")
 def api_health_plugin_update(plugin_id: str):
-    """
-    Explicit update check for one plugin.
-
-    It is intentionally separate from /api/health so merely opening RackDash
-    never causes background calls to GitHub.
-    """
+    """Perform and persist a fresh update check for one plugin."""
     plugin = plugins.get(plugin_id)
     if plugin is None:
         return jsonify({"ok": False, "error": "Unknown plugin"}), 404
 
-    try:
-        if plugin.official:
-            if not plugin.source_path:
-                return jsonify({
-                    "ok": False,
-                    "plugin": plugin_id,
-                    "error": "Official plugin is missing PLUGIN_SOURCE_PATH",
-                }), 200
-            result = official_plugin_updater.check(
-                plugin.id,
-                plugin.source_path,
-                plugin.plugin_version,
-                force=True,
-            )
-        else:
-            result = github_update_status(plugin.github_url, plugin.plugin_version, force=True)
-        return jsonify({"ok": True, "plugin": plugin_id, "update": result})
-    except Exception:
-        app.logger.exception("Update check failed for plugin %s", plugin_id)
+    row = update_monitor.check_plugin(plugin, automatic=False)
+    if row.get("ok"):
         return jsonify({
-            "ok": False,
+            "ok": True,
             "plugin": plugin_id,
-            "error": "Unable to check GitHub for updates",
-        }), 200
+            "update": row.get("result") or {},
+            "checked_at": row.get("checked_at"),
+        })
+
+    return jsonify({
+        "ok": False,
+        "plugin": plugin_id,
+        "error": row.get("error") or "Unable to check GitHub for updates",
+        "checked_at": row.get("checked_at"),
+    }), 200
 
 
 def _admin_denied():
@@ -389,22 +419,55 @@ def api_health_plugin_test(plugin_id: str):
         }), 200
 @app.get("/api/health/rackdash/update")
 def api_health_rackdash_update():
-    try:
-        result = github_update_status(RACKDASH_GITHUB, APP_VERSION, force=True)
+    row = update_monitor.check_core(automatic=False)
+    if row.get("ok"):
         return jsonify({
             "ok": True,
             "current": APP_VERSION,
             "github_url": RACKDASH_GITHUB,
-            "update": result,
+            "update": row.get("result") or {},
+            "checked_at": row.get("checked_at"),
         })
-    except Exception:
-        app.logger.exception("RackDash update check failed")
-        return jsonify({
-            "ok": False,
-            "current": APP_VERSION,
-            "github_url": RACKDASH_GITHUB,
-            "error": "Unable to check GitHub for RackDash updates",
-        }), 200
+
+    return jsonify({
+        "ok": False,
+        "current": APP_VERSION,
+        "github_url": RACKDASH_GITHUB,
+        "error": row.get("error")
+            or "Unable to check GitHub for RackDash updates",
+        "checked_at": row.get("checked_at"),
+    }), 200
+
+
+@app.get("/api/admin/update-settings")
+def api_admin_update_settings():
+    return jsonify({"ok": True, **update_monitor.status()})
+
+
+@app.post("/api/admin/update-settings")
+def api_admin_update_settings_save():
+    if not _require_admin():
+        return _admin_denied()
+
+    payload = request.get_json(silent=True) or {}
+    settings = update_monitor.set_settings(
+        bool(payload.get("core_daily")),
+        bool(payload.get("plugins_daily")),
+    )
+    return jsonify({"ok": True, "settings": settings})
+
+
+@app.post("/api/admin/plugin-updates/check-all")
+def api_admin_plugin_updates_check_all():
+    if not _require_admin():
+        return _admin_denied()
+
+    rows = update_monitor.check_plugins(automatic=False)
+    return jsonify({
+        "ok": True,
+        "plugins": rows,
+        "checked_at": int(time.time()),
+    })
 
 
 @app.get("/api/admin/i2c")

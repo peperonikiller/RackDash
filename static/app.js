@@ -298,6 +298,75 @@
     try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/debug?fetch=1`);const x=await r.json();document.getElementById("platformOutput").textContent=JSON.stringify(x,null,2);}catch(e){}
   }
 
+  function updateCheckedText(timestamp,automatic=false){
+    if(!timestamp)return "Never checked";
+    const date=new Date(Number(timestamp)*1000);
+    return `${automatic?"Automatic":"Manual"} · ${date.toLocaleString()}`;
+  }
+
+  function renderPersistedUpdates(data){
+    const updates=data.updates||{};
+    const settings=updates.settings||{};
+    const core=updates.core||{};
+
+    const coreDaily=document.getElementById("rackdashDailyUpdateCheck");
+    const pluginsDaily=document.getElementById("pluginsDailyUpdateCheck");
+    if(coreDaily)coreDaily.checked=!!settings.core_daily;
+    if(pluginsDaily)pluginsDaily.checked=!!settings.plugins_daily;
+
+    if(core.ok&&core.result){
+      const u=core.result;
+      const current=document.querySelector('[data-rackdash-update="current"]');
+      const latest=document.querySelector('[data-rackdash-update="latest"]');
+      const status=document.querySelector('[data-rackdash-update="status"]');
+      if(current)current.textContent=`v${data.app?.version||u.current||"--"}`;
+      if(latest)latest.textContent=u.latest||"NO RELEASE/TAG";
+      if(status){
+        status.textContent=(u.status||"unknown").replaceAll("_"," ").toUpperCase();
+        status.className=u.status||"";
+      }
+      const message=document.getElementById("rackdashUpdateMessage");
+      if(message)message.textContent=u.message||"Update status unavailable.";
+    }else if(core.checked_at){
+      const status=document.querySelector('[data-rackdash-update="status"]');
+      if(status){
+        status.textContent="ERROR";
+        status.className="error";
+      }
+    }
+
+    let available=0;
+    for(const plugin of data.plugins||[]){
+      const saved=plugin.update_status||{};
+      const row=document.querySelector(
+        `[data-health-plugin="${CSS.escape(plugin.id)}"]`
+      );
+      const status=row?.querySelector("[data-update-status]");
+      if(saved.ok&&saved.result&&status){
+        const u=saved.result;
+        status.textContent=u.message||"Unknown";
+        status.className=`health-update-status ${u.status||""}`;
+        if(u.status==="update_available")available++;
+      }else if(saved.checked_at&&status){
+        status.textContent=saved.error||"Check failed";
+        status.className="health-update-status error";
+      }
+    }
+
+    const updateCount=document.querySelector('[data-health="updates"]');
+    if(updateCount)updateCount.textContent=String(available);
+
+    const last=document.getElementById("updateLastCheck");
+    if(last){
+      last.textContent=
+        `RackDash: ${updateCheckedText(core.checked_at,core.automatic)} · `+
+        `Plugins: ${updateCheckedText(
+          updates.plugin_batch_checked_at,
+          updates.plugin_batch_automatic
+        )}`;
+    }
+  }
+
   async function loadHealth(){
     if(!healthPage)return;
     try{
@@ -390,7 +459,7 @@
         btn.addEventListener("click",()=>checkPluginUpdate(btn.dataset.checkUpdate,btn));
       });
       renderI2C(data.i2c||{});renderAdminSecurity(data.admin_auth||{});
-      document.querySelector('[data-health="updates"]').textContent="0";
+      renderPersistedUpdates(data);
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
     }
@@ -452,6 +521,16 @@
         status.className=u.status||"";
       }
       if(message)message.textContent=u.message||"Update status unavailable.";
+      const last=document.getElementById("updateLastCheck");
+      if(last){
+        const pluginBatch=window.__RackDashHealth?.updates||{};
+        last.textContent=
+          `RackDash: ${updateCheckedText(data.checked_at,false)} · `+
+          `Plugins: ${updateCheckedText(
+            pluginBatch.plugin_batch_checked_at,
+            pluginBatch.plugin_batch_automatic
+          )}`;
+      }
     }catch(e){
       if(status){status.textContent="ERROR";status.className="error";}
       if(message)message.textContent=e.message;
@@ -478,6 +557,36 @@
   document.getElementById("adminLogs")?.addEventListener("click",async()=>{
     try{const r=await adminFetch("/api/admin/logs?lines=300");const x=await r.json();document.getElementById("platformOutput").textContent=(x.lines||[]).join("\\n");}catch(e){}
   });
+  document.getElementById("saveUpdateCheckSettings")?.addEventListener("click",async()=>{
+    const button=document.getElementById("saveUpdateCheckSettings");
+    const message=document.getElementById("rackdashUpdateMessage");
+    button.disabled=true;
+    try{
+      const response=await adminFetch("/api/admin/update-settings",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          core_daily:!!document.getElementById("rackdashDailyUpdateCheck")?.checked,
+          plugins_daily:!!document.getElementById("pluginsDailyUpdateCheck")?.checked
+        })
+      });
+      const result=await response.json();
+      if(!result.ok)throw new Error(
+        result.error||"Unable to save update settings"
+      );
+      message.textContent=
+        `Automatic checks saved. RackDash: ${
+          result.settings.core_daily?"daily":"manual only"
+        } · Plugins: ${
+          result.settings.plugins_daily?"daily":"manual only"
+        }.`;
+    }catch(error){
+      message.textContent=error.message;
+    }finally{
+      button.disabled=false;
+    }
+  });
+
   document.getElementById("rackdashUpdateNow")?.addEventListener("click",async()=>{
     if(!confirm("Download and install the latest RackDash GitHub release? A backup will be created first."))return;
     try{const r=await adminFetch("/api/admin/core/update",{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Update failed");document.getElementById("rackdashUpdateMessage").textContent=`Installed ${x.update.version}. Restarting...`;setTimeout(showConnectionLost,900);}catch(e){document.getElementById("rackdashUpdateMessage").textContent=e.message;}
@@ -648,11 +757,23 @@
   document.getElementById("healthCheckAll")?.addEventListener("click",async e=>{
     const button=e.currentTarget;
     button.disabled=true;
-    const buttons=[...document.querySelectorAll("[data-check-update]")].filter(b=>!b.disabled);
-    for(const btn of buttons){
-      await checkPluginUpdate(btn.dataset.checkUpdate,btn);
+    button.textContent="CHECKING...";
+    try{
+      const response=await adminFetch(
+        "/api/admin/plugin-updates/check-all",
+        {method:"POST"}
+      );
+      const result=await response.json();
+      if(!result.ok)throw new Error(
+        result.error||"Plugin update check failed"
+      );
+      await loadHealth();
+    }catch(error){
+      alert(error.message);
+    }finally{
+      button.disabled=false;
+      button.textContent="CHECK ALL UPDATES";
     }
-    button.disabled=false;
   });
 
   const stored=localStorage.getItem("rackdash-auto-rotate");

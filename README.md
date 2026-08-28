@@ -540,3 +540,29 @@ RackDash self-update prefers a RackDash ZIP attached to the GitHub Release. If
 there is no release asset, it now falls back to GitHub's automatic release
 `zipball_url`. This allows a normal GitHub Release with no attached assets to
 still be installed from Admin.
+
+
+## v2.3.0 daily update checks
+
+The **Check RackDash Update** button now lives inside the RackDash Update
+section instead of the Admin header.
+
+RackDash has two optional automatic checks:
+
+- **Daily RackDash Update Check**
+- **Daily Plugin Update Checks**
+
+When enabled, the RackDash service performs the corresponding check at most
+once every 24 hours. Enabling a check for the first time causes the service to
+perform its first check shortly afterward.
+
+Automatic checks only detect updates. They never install RackDash or plugin
+updates automatically.
+
+Update results are saved to `data/update_checks.json`, so the Admin page keeps
+showing the last result after a browser refresh, service restart, or Pi reboot.
+The Admin page also shows whether the last check was automatic or manual and
+when it occurred.
+
+**Check RackDash Update** and **Check All Updates** remain manual controls and
+always perform fresh GitHub checks.
