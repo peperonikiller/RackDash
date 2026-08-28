@@ -1,3 +1,5 @@
+![RackDash Logo](rackdash_logo.png)
+
 # RackDash
 
 RackDash is a lightweight, plugin-driven dashboard for **Raspberry Pi, rackmount LCDs, touchscreen status panels, homelabs, and unusual display resolutions**.
