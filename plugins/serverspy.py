@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import bz2
 import os
+import re
 import socket
 import struct
 import time
 import zlib
+
+import requests
 
 from _shared import TTLCache
 
 
 PLUGIN_ID = "serverspy"
 PLUGIN_NAME = "ServerSpy"
-PLUGIN_VERSION = "1.1.2"
+PLUGIN_VERSION = "1.2.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/serverspy.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -122,7 +125,10 @@ PLUGIN_HTML = r'''
   <section class="serverspy-metrics">
     <article class="surface metric-card"><span>PLAYERS</span><strong data-role="players">--</strong><small data-role="bots"></small></article>
     <article class="surface metric-card"><span>PING</span><strong data-role="ping">--</strong><small>query round trip</small></article>
-    <article class="surface metric-card"><span>MAP</span><strong data-role="map">--</strong><small data-role="folder"></small></article>
+    <article class="surface metric-card map-card">
+      <div class="map-preview" data-role="map-preview"><div class="map-preview-fallback">MAP</div></div>
+      <div class="map-card-copy"><span>MAP</span><strong data-role="map">--</strong><small data-role="folder"></small></div>
+    </article>
     <article class="surface metric-card"><span>SECURITY</span><strong data-role="security">--</strong><small data-role="visibility"></small></article>
   </section>
 
@@ -145,6 +151,13 @@ PLUGIN_CSS = r'''
 .plugin-serverspy .metric-card span{display:block;font-size:.5rem;color:var(--muted);font-weight:850}
 .plugin-serverspy .metric-card strong{display:block;margin-top:.14rem;font-size:clamp(.95rem,2vw,1.5rem);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plugin-serverspy .metric-card small{display:block;margin-top:.08rem;font-size:.48rem;color:var(--muted)}
+.plugin-serverspy .map-card{display:grid;grid-template-columns:clamp(5.2rem,8vw,8rem) minmax(0,1fr);gap:.65rem;align-items:stretch;padding:.42rem}
+.plugin-serverspy .map-preview{min-height:4.25rem;border:1px solid var(--border);border-radius:.38rem;overflow:hidden;background:rgba(255,255,255,.015);display:grid;place-items:center}
+.plugin-serverspy .map-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.plugin-serverspy .map-preview-fallback{font-size:.48rem;font-weight:900;color:var(--muted);letter-spacing:.06em}
+.plugin-serverspy .map-card-copy{min-width:0;align-self:center}
+.plugin-serverspy .serverspy-title-link{color:inherit;text-decoration:none;border-bottom:1px dashed rgba(101,199,255,.6)}
+.plugin-serverspy .serverspy-title-link:hover{color:#65c7ff;border-bottom-color:#65c7ff}
 .plugin-serverspy .serverspy-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-areas:"info players" "rules rules";gap:var(--gap);align-items:start}
 .plugin-serverspy .serverspy-info{grid-area:info}.plugin-serverspy .serverspy-players{grid-area:players}.plugin-serverspy .serverspy-rules{grid-area:rules}
 .plugin-serverspy .info-grid{margin-top:.5rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem}
@@ -167,9 +180,33 @@ window.RackDashPlugins.serverspy={
   info(data){const rows=[["GAME",data.game],["PROTOCOL",data.protocol_label],["VERSION",data.version],["APP ID",data.app_id],["GAME PORT",data.game_port],["QUERY PORT",data.query_port],["SERVER TYPE",data.server_type],["ENVIRONMENT",data.environment],["KEYWORDS",data.keywords],["GAME ID",data.game_id]].filter(r=>r[1]!==null&&r[1]!==undefined&&String(r[1])!=="");return rows.map(([l,v])=>`<div class="info-item"><span>${RackDash.escape(l)}</span><strong>${RackDash.escape(String(v))}</strong></div>`).join("")||`<div class="empty-state">No additional server information.</div>`},
   players(rows){if(!rows?.length)return `<div class="empty-state">No player details returned by this server.</div>`;return rows.map((p,i)=>`<div class="player-row"><div class="player-index">${i+1}</div><div class="player-name">${RackDash.escape(p.name||"Unnamed")}</div><div class="player-score">${p.score==null?"":`${RackDash.escape(String(p.score))} pts`}</div><div class="player-time">${p.duration==null?"":this.duration(p.duration)}</div></div>`).join("")},
   rules(rules){const e=Object.entries(rules||{});if(!e.length)return `<div class="empty-state">No rules/details returned by this server.</div>`;return e.slice(0,60).map(([k,v])=>`<div class="rule-item"><span>${RackDash.escape(k)}</span><strong>${RackDash.escape(String(v))}</strong></div>`).join("")},
+  linkifyServerName(name,links){
+    const raw=String(name||"Source Server");
+    if(!links?.length)return RackDash.escape(raw);
+    let html="",cursor=0;
+    const matches=[];
+    for(const url of links){
+      const index=raw.indexOf(url,cursor);
+      if(index>=0)matches.push({index,url});
+    }
+    matches.sort((a,b)=>a.index-b.index);
+    for(const match of matches){
+      html+=RackDash.escape(raw.slice(cursor,match.index));
+      html+=`<a class="serverspy-title-link" href="${RackDash.escape(match.url)}" target="_blank" rel="noopener noreferrer">${RackDash.escape(match.url)}</a>`;
+      cursor=match.index+match.url.length;
+    }
+    html+=RackDash.escape(raw.slice(cursor));
+    return html;
+  },
+
+  mapPreview(data){
+    if(!data.map_preview_url)return `<div class="map-preview-fallback">NO PREVIEW</div>`;
+    return `<img src="${RackDash.escape(data.map_preview_url)}" alt="${RackDash.escape(data.map||"Map")} preview" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;map-preview-fallback&quot;>NO PREVIEW</div>'">`;
+  },
+
   render(data,root){
     root.querySelector('[data-role="game-label"]').textContent=data.game_label||"SERVERSPY";
-    root.querySelector('[data-role="server-name"]').textContent=data.name||"Game Server";
+    root.querySelector('[data-role="server-name"]').innerHTML=this.linkifyServerName(data.name||"Source Server",data.server_links);
     root.querySelector('[data-role="address"]').textContent=`${data.host||""}:${data.query_port||""}`;
     const status=root.querySelector('[data-role="status"]');status.textContent=data.online?"ONLINE":"OFFLINE";status.className=`serverspy-status ${data.online?"online":"offline"}`;
     root.querySelector('[data-role="players"]').textContent=`${data.players??0} / ${data.max_players??0}`;
@@ -177,6 +214,7 @@ window.RackDashPlugins.serverspy={
     root.querySelector('[data-role="ping"]').textContent=data.ping_ms==null?"--":`${Math.round(data.ping_ms)} ms`;
     root.querySelector('[data-role="map"]').textContent=data.map||"--";
     root.querySelector('[data-role="folder"]').textContent=data.folder||"";
+    const preview=root.querySelector('[data-role="map-preview"]');if(preview)preview.innerHTML=this.mapPreview(data);
     root.querySelector('[data-role="security"]').textContent=data.vac===true?"VAC":data.vac===false?"NO VAC":data.secure===true?"SECURE":data.secure===false?"OPEN":"--";
     root.querySelector('[data-role="visibility"]').textContent=data.password?"Password protected":"Public";
     root.querySelector('[data-role="info"]').innerHTML=this.info(data);
@@ -200,6 +238,16 @@ A2S_INFO_BODY = b"TSource Engine Query\x00"
 
 MAX_SPLIT_PACKETS = 32
 MAX_RESPONSE_BYTES = 512 * 1024
+
+CS2_MAP_ASSET_ROOT = (
+    "https://raw.githubusercontent.com/"
+    "MurkyYT/cs2-map-icons/main"
+)
+MAP_IMAGE_TIMEOUT = 5
+URL_RE = re.compile(
+    r"(?P<url>https?://[^\s<>\"']+)",
+    re.IGNORECASE,
+)
 
 
 class QueryResponse:
@@ -648,6 +696,89 @@ def _fetch_rules(config):
     return dict(_rules_cache.set(rules))
 
 
+
+def _extract_urls(value):
+    value = str(value or "")
+    urls = []
+    for match in URL_RE.finditer(value):
+        url = match.group("url").rstrip(".,;:!?)]}")
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
+def _map_asset_candidates(map_name):
+    raw = str(map_name or "").strip().lower()
+    safe = re.sub(r"[^a-z0-9_]", "", raw)
+    if not safe:
+        return []
+
+    names = [safe]
+    prefixes = ("de_", "cs_", "ar_", "dz_", "aim_", "awp_")
+
+    if safe.startswith(prefixes):
+        parts = safe.split("_")
+        while len(parts) > 2:
+            parts = parts[:-1]
+            candidate = "_".join(parts)
+            if candidate not in names:
+                names.append(candidate)
+
+    candidates = []
+    for name in names:
+        candidates.extend([
+            (name, f"{CS2_MAP_ASSET_ROOT}/images/thumbs/{name}_1_png.png"),
+            (name, f"{CS2_MAP_ASSET_ROOT}/images/thumbs/{name}_png.png"),
+            (name, f"{CS2_MAP_ASSET_ROOT}/images/{name}.png"),
+        ])
+    return candidates
+
+
+def _fetch_map_image(map_name):
+    for resolved_name, url in _map_asset_candidates(map_name):
+        try:
+            response = requests.get(
+                url,
+                timeout=MAP_IMAGE_TIMEOUT,
+                headers={
+                    "User-Agent": "RackDash-ServerSpy/1.2.0",
+                    "Accept": "image/*",
+                },
+            )
+            if response.status_code != 200:
+                continue
+            content_type = response.headers.get("Content-Type", "")
+            if not content_type.startswith("image/"):
+                continue
+            if len(response.content) > 4 * 1024 * 1024:
+                continue
+            return {
+                "content": response.content,
+                "content_type": content_type,
+                "resolved_map": resolved_name,
+            }
+        except Exception:
+            continue
+    return None
+
+
+def register_routes(app):
+    @app.get("/api/plugin/serverspy/map-preview/<map_name>")
+    def serverspy_map_preview(map_name):
+        image = _fetch_map_image(map_name)
+        if not image:
+            return app.response_class(status=404)
+
+        response = app.response_class(
+            image["content"],
+            content_type=image["content_type"],
+        )
+        response.headers["Cache-Control"] = "public, max-age=21600"
+        response.headers["X-ServerSpy-Map"] = image["resolved_map"]
+        return response
+
+
+
 def get_data():
     config = _config()
 
@@ -669,6 +800,8 @@ def get_data():
         except Exception:
             rules = {}
 
+    server_links = _extract_urls(data.get("name", ""))
+
     data.update({
         "game_key": config["game_key"],
         "game_label": config["game_label"],
@@ -678,6 +811,11 @@ def get_data():
         "detailed_queries": config["detailed"],
         "player_list": player_list,
         "rules": rules,
+        "server_links": server_links,
+        "map_preview_url": (
+            "/api/plugin/serverspy/map-preview/"
+            + str(data.get("map") or "")
+        ) if data.get("map") else "",
     })
 
     return data
