@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import time
 from datetime import datetime
 
 import requests
@@ -11,12 +12,12 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "1.1.1"
+PLUGIN_VERSION = "1.1.2"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
 PLUGIN_MAX_RACKDASH = ""
-PLUGIN_CAPABILITIES = ["network", "i2c"]
+PLUGIN_CAPABILITIES = ["network", "custom_routes", "i2c"]
 PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 PLUGIN_ORDER = 30
 PLUGIN_REFRESH_SECONDS = 300
@@ -139,7 +140,7 @@ PLUGIN_HTML = r"""
       </div>
 
       <div class="wx-radar-footer">
-        <span><a class="wx-source-link" data-role="radar-source" href="https://librewxr.net/" target="_blank" rel="noopener noreferrer">LibreWXR radar</a> · <a class="wx-source-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
+        <span><a class="wx-source-link" data-role="radar-source" href="https://radar.weather.gov/" target="_blank" rel="noopener noreferrer">NOAA / NWS MRMS radar</a> · <a class="wx-source-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
         <div class="wx-radar-legend">
           <span>Light</span>
           <i></i>
@@ -672,18 +673,8 @@ window.RackDashPlugins.weather={
     host.innerHTML=parts.join("");
   },
 
-  radarUrl(data,provider,frame){
-    if(!provider?.host||!frame?.path)return "";
-    const lat=Number(data.latitude).toFixed(5);
-    const lon=Number(data.longitude).toFixed(5);
-    return `${provider.host}${frame.path}/512/7/${lat}/${lon}/2/1_1.png`;
-  },
-
-  setRadarSource(root,provider){
-    const link=root.querySelector('[data-role="radar-source"]');
-    if(!link||!provider)return;
-    link.textContent=`${provider.name} radar`;
-    link.href=provider.homepage||"#";
+  radarUrl(minutesAgo){
+    return `/api/plugin/weather/radar?minutes_ago=${encodeURIComponent(minutesAgo)}`;
   },
 
   startRadar(data,root){
@@ -692,92 +683,46 @@ window.RackDashPlugins.weather={
       this.radarTimer=null;
     }
 
-    const providers=data.radar?.providers||[];
     const overlay=root.querySelector('[data-role="radar-overlay"]');
     const unavailable=root.querySelector('[data-role="radar-unavailable"]');
     const timeNode=root.querySelector('[data-role="radar-time"]');
 
     this.renderBaseMap(root,Number(data.latitude),Number(data.longitude),7);
 
-    if(!providers.length||!overlay){
+    if(!overlay){
       if(unavailable)unavailable.hidden=false;
       return;
     }
 
-    if(unavailable)unavailable.hidden=true;
-
-    let providerIndex=Math.min(this.radarProviderIndex||0,providers.length-1);
-    let provider=providers[providerIndex];
-    let frames=provider.frames||[];
-
-    if(!frames.length){
-      providerIndex=0;
-      provider=providers[0];
-      frames=provider.frames||[];
-    }
-
-    if(!frames.length){
-      if(unavailable)unavailable.hidden=false;
-      return;
-    }
-
-    this.radarProviderIndex=providerIndex;
-    this.setRadarSource(root,provider);
-
-    const signature=`${provider.name}:`+frames.map(f=>f.time).join(",");
-    if(signature!==this.radarSignature){
-      this.radarFrame=Math.max(0,frames.length-8);
-      this.radarSignature=signature;
-    }
+    // NOAA's MRMS imagery service keeps a rolling multi-hour time window.
+    // We animate the most recent hour, offset slightly so each requested
+    // timestamp has had time to arrive in the service.
+    const frames=[60,55,50,45,40,35,30,25,20,15,10,5];
+    this.radarFrame=this.radarFrame%frames.length;
 
     const draw=()=>{
-      provider=providers[this.radarProviderIndex]||providers[0];
-      frames=provider.frames||[];
-
-      if(!frames.length){
-        if(unavailable)unavailable.hidden=false;
-        return;
-      }
-
-      const frame=frames[this.radarFrame%frames.length];
-      overlay.style.opacity=".25";
-
+      const minutesAgo=frames[this.radarFrame];
       const next=new Image();
+
+      overlay.style.opacity=".25";
 
       next.onload=()=>{
         overlay.src=next.src;
         overlay.style.opacity=".82";
         if(unavailable)unavailable.hidden=true;
-        this.setRadarSource(root,provider);
       };
 
       next.onerror=()=>{
         overlay.style.opacity=".82";
-
-        // Metadata may be healthy while a provider's image endpoint is not.
-        // Move to the next provider automatically instead of leaving a dead
-        // radar panel.
-        if(providers.length>1){
-          this.radarProviderIndex=(this.radarProviderIndex+1)%providers.length;
-          const fallback=providers[this.radarProviderIndex];
-          const fallbackFrames=fallback.frames||[];
-
-          if(fallbackFrames.length){
-            this.radarFrame=Math.max(0,fallbackFrames.length-8);
-            this.radarSignature="";
-            this.setRadarSource(root,fallback);
-          }else if(unavailable){
-            unavailable.hidden=false;
-          }
-        }else if(unavailable){
-          unavailable.hidden=false;
-        }
+        if(unavailable)unavailable.hidden=false;
       };
 
-      next.src=this.radarUrl(data,provider,frame);
+      // Cache-bust only per animation frame index; the backend itself caches
+      // NOAA responses briefly so multiple browsers do not hammer NWS.
+      next.src=`${this.radarUrl(minutesAgo)}&frame=${this.radarFrame}`;
 
       if(timeNode){
-        const d=new Date(Number(frame.time)*1000);
+        const d=new Date(Date.now()-minutesAgo*60*1000);
         timeNode.textContent=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
       }
 
@@ -785,7 +730,7 @@ window.RackDashPlugins.weather={
     };
 
     draw();
-    this.radarTimer=setInterval(draw,900);
+    this.radarTimer=setInterval(draw,1100);
   },
 
   hourly(rows,data){
@@ -924,81 +869,131 @@ def _geocode():
     return dict(result)
 
 
-def _radar_provider(name, api_url, homepage):
-    try:
-        response = requests.get(
-            api_url,
-            timeout=6,
-            headers={
-                "User-Agent": "RackDash-Weather/1.1.1",
-                "Accept": "application/json",
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
+NOAA_RADAR_URL = (
+    "https://mapservices.weather.noaa.gov/eventdriven/rest/services/"
+    "radar/radar_base_reflectivity_time/ImageServer/exportImage"
+)
 
-        radar = payload.get("radar") or {}
-        frames_raw = radar.get("past") or []
-
-        # Some compatible services also expose nowcast. We deliberately keep
-        # observed/past radar only so the animation is actual radar history.
-        frames = [
-            {
-                "time": int(frame.get("time") or 0),
-                "path": str(frame.get("path") or ""),
-            }
-            for frame in frames_raw[-12:]
-            if frame.get("path")
-        ]
-
-        host = str(payload.get("host") or "").rstrip("/")
-
-        if not host or not frames:
-            return None
-
-        return {
-            "name": name,
-            "homepage": homepage,
-            "host": host,
-            "frames": frames,
-        }
-
-    except Exception:
-        return None
+_radar_image_cache = {}
 
 
 def _radar():
-    cached = _radar_cache.get()
-    if cached is not None:
-        return dict(cached)
-
-    # LibreWXR is now the preferred source. It intentionally implements the
-    # RainViewer v2 metadata/tile contract and currently provides public global
-    # radar composites. RainViewer remains as an automatic fallback.
-    providers = []
-
-    libre = _radar_provider(
-        "LibreWXR",
-        "https://api.librewxr.net/public/weather-maps.json",
-        "https://librewxr.net/",
-    )
-    if libre:
-        providers.append(libre)
-
-    rainviewer = _radar_provider(
-        "RainViewer",
-        "https://api.rainviewer.com/public/weather-maps.json",
-        "https://www.rainviewer.com/",
-    )
-    if rainviewer:
-        providers.append(rainviewer)
-
-    result = {
-        "providers": providers,
+    # The browser no longer depends on third-party metadata endpoints.
+    # NOAA radar frames are proxied through RackDash itself.
+    return {
+        "provider": "NOAA / NWS MRMS",
+        "available": True,
     }
 
-    _radar_cache.set(result)
-    return dict(result)
+
+def _radar_bbox(latitude, longitude):
+    """
+    Return a local geographic window centered on the configured forecast
+    location. Roughly a few hundred miles wide at mid-latitudes.
+    """
+    lat = float(latitude)
+    lon = float(longitude)
+
+    lat_span = 3.1
+    cos_lat = max(0.35, math.cos(math.radians(lat)))
+    lon_span = min(5.5, lat_span / cos_lat)
+
+    return (
+        lon - lon_span,
+        lat - lat_span,
+        lon + lon_span,
+        lat + lat_span,
+    )
+
+
+def _radar_frame(latitude, longitude, minutes_ago):
+    """
+    Fetch one NOAA MRMS base-reflectivity image.
+
+    NOAA's official ImageServer is time-enabled and maintains a rolling
+    multi-hour window. Requests are made server-side so Chromium never needs
+    direct access to NOAA and browser CORS/content-policy differences cannot
+    break the radar panel.
+    """
+    try:
+        minutes_ago = max(5, min(180, int(minutes_ago)))
+    except (TypeError, ValueError):
+        minutes_ago = 10
+
+    # NOAA updates approximately every 5 minutes. Round to a five-minute UTC
+    # boundary and keep a five-minute ingestion offset.
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    step_ms = 5 * 60 * 1000
+    requested_ms = now_ms - ((minutes_ago + 5) * 60 * 1000)
+    requested_ms = (requested_ms // step_ms) * step_ms
+
+    cache_key = (
+        round(float(latitude), 3),
+        round(float(longitude), 3),
+        requested_ms,
+    )
+
+    cached = _radar_image_cache.get(cache_key)
+    if cached:
+        created_at, content, content_type = cached
+        if time.time() - created_at < 600:
+            return content, content_type, requested_ms
+
+    west, south, east, north = _radar_bbox(
+        latitude,
+        longitude,
+    )
+
+    response = requests.get(
+        NOAA_RADAR_URL,
+        params={
+            "bbox": f"{west:.5f},{south:.5f},{east:.5f},{north:.5f}",
+            "bboxSR": "4326",
+            "size": "900,520",
+            "imageSR": "4326",
+            "format": "png32",
+            "transparent": "true",
+            "time": str(requested_ms),
+            "interpolation": "RSP_BilinearInterpolation",
+            "f": "image",
+        },
+        timeout=12,
+        headers={
+            "User-Agent": "RackDash-Weather/1.1.2",
+            "Accept": "image/png,image/*;q=0.8,*/*;q=0.2",
+        },
+    )
+    response.raise_for_status()
+
+    content_type = response.headers.get(
+        "Content-Type",
+        "image/png",
+    )
+
+    if not content_type.startswith("image/"):
+        raise RuntimeError(
+            f"NOAA radar returned {content_type}"
+        )
+
+    if not response.content:
+        raise RuntimeError("NOAA radar returned an empty image")
+
+    # Keep the small in-memory cache bounded.
+    if len(_radar_image_cache) > 48:
+        oldest = sorted(
+            _radar_image_cache.items(),
+            key=lambda item: item[1][0],
+        )[:16]
+        for key, _ in oldest:
+            _radar_image_cache.pop(key, None)
+
+    _radar_image_cache[cache_key] = (
+        time.time(),
+        response.content,
+        content_type,
+    )
+
+    return response.content, content_type, requested_ms
 
 
 def _safe_index(values, index, default=None):
@@ -1264,6 +1259,47 @@ def get_data():
     _weather_cache.set(data)
     return dict(data)
 
+
+
+def register_routes(app):
+    @app.get("/api/plugin/weather/radar")
+    def weather_radar():
+        from flask import request
+
+        if not LOCATION:
+            return app.response_class(status=404)
+
+        try:
+            loc = _geocode()
+            if not loc:
+                return app.response_class(status=404)
+
+            content, content_type, timestamp_ms = _radar_frame(
+                loc["latitude"],
+                loc["longitude"],
+                request.args.get("minutes_ago", "10"),
+            )
+
+            response = app.response_class(
+                content,
+                content_type=content_type,
+            )
+            response.headers["Cache-Control"] = (
+                "public, max-age=180"
+            )
+            response.headers["X-RackDash-Radar-Provider"] = (
+                "NOAA-NWS-MRMS"
+            )
+            response.headers["X-RackDash-Radar-Time"] = str(
+                timestamp_ms
+            )
+            return response
+
+        except Exception:
+            app.logger.exception(
+                "Weather radar frame failed"
+            )
+            return app.response_class(status=502)
 
 def get_i2c_data():
     try:
