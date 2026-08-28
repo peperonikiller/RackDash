@@ -347,6 +347,50 @@
     return `${automatic?"Automatic":"Manual"} · ${date.toLocaleString()}`;
   }
 
+  function versionParts(value){
+    const matches=String(value||"").match(/\d+/g)||[];
+    return matches.map(Number);
+  }
+
+  function compareVersions(left,right){
+    const a=versionParts(left),b=versionParts(right);
+    const width=Math.max(a.length,b.length);
+    for(let i=0;i<width;i++){
+      const av=a[i]||0,bv=b[i]||0;
+      if(av<bv)return -1;
+      if(av>bv)return 1;
+    }
+    return 0;
+  }
+
+  function reconcilePersistedUpdate(update,currentVersion){
+    if(!update||typeof update!=="object")return update||{};
+    const latest=update.latest;
+    if(
+      update.status==="update_available" &&
+      latest &&
+      currentVersion &&
+      compareVersions(currentVersion,latest)>=0
+    ){
+      return {
+        ...update,
+        current:currentVersion,
+        status:"current",
+        message:"Up to date"
+      };
+    }
+    return update;
+  }
+
+  function setAdminAttention(active){
+    const adminButton=document.querySelector('[data-tab="health"]')||
+      [...document.querySelectorAll(".tab-button,.tab")].find(el=>
+        String(el.textContent||"").trim().toUpperCase()==="ADMIN"
+      );
+    if(!adminButton)return;
+    adminButton.classList.toggle("admin-attention",Boolean(active));
+  }
+
   function renderPersistedUpdates(data){
     const updates=data.updates||{};
     const settings=updates.settings||{};
@@ -358,11 +402,12 @@
     if(pluginsDaily)pluginsDaily.checked=!!settings.plugins_daily;
 
     if(core.ok&&core.result){
-      const u=core.result;
+      const loadedVersion=data.app?.version||core.result.current||"";
+      const u=reconcilePersistedUpdate(core.result,loadedVersion);
       const current=document.querySelector('[data-rackdash-update="current"]');
       const latest=document.querySelector('[data-rackdash-update="latest"]');
       const status=document.querySelector('[data-rackdash-update="status"]');
-      if(current)current.textContent=`v${data.app?.version||u.current||"--"}`;
+      if(current)current.textContent=`v${loadedVersion||u.current||"--"}`;
       if(latest)latest.textContent=u.latest||"NO RELEASE/TAG";
       if(status){
         status.textContent=(u.status||"unknown").replaceAll("_"," ").toUpperCase();
@@ -386,7 +431,10 @@
       );
       const status=row?.querySelector("[data-update-status]");
       if(saved.ok&&saved.result&&status){
-        const u=saved.result;
+        const u=reconcilePersistedUpdate(
+          saved.result,
+          plugin.version||saved.result.current||""
+        );
         status.textContent=u.message||"Unknown";
         status.className=`health-update-status ${u.status||""}`;
         if(u.status==="update_available")available++;
@@ -425,6 +473,30 @@
       healthPage.querySelector('[data-health="healthy-count"]').textContent=String(healthyCount);
       healthPage.querySelector('[data-health="issue-count"]').textContent=String(issueCount);
       healthPage.querySelector('[data-health="status"]').textContent=issueCount?"ATTENTION":"OK";
+
+      const coreUpdateRaw=(data.update_monitor?.core?.ok&&data.update_monitor?.core?.result)
+        ?data.update_monitor.core.result
+        :null;
+      const coreUpdate=coreUpdateRaw
+        ?reconcilePersistedUpdate(coreUpdateRaw,data.app?.version||coreUpdateRaw.current||"")
+        :null;
+
+      const pluginUpdateRows=data.update_monitor?.plugins||{};
+      const pluginUpdatesAvailable=(data.plugins||[]).some(plugin=>{
+        const saved=pluginUpdateRows[plugin.id];
+        if(!saved?.ok||!saved.result)return false;
+        const reconciled=reconcilePersistedUpdate(
+          saved.result,
+          plugin.version||saved.result.current||""
+        );
+        return reconciled.status==="update_available";
+      });
+
+      setAdminAttention(
+        issueCount>0 ||
+        coreUpdate?.status==="update_available" ||
+        pluginUpdatesAvailable
+      );
 
       const failedPanel=document.getElementById("failedPluginPanel");
       const failedList=document.getElementById("failedPluginList");

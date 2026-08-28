@@ -330,3 +330,28 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
   .failed-plugin-row{grid-template-columns:1fr}
   .failed-plugin-badge{justify-self:start}
 }
+
+
+/* Admin attention indicator: update available or plugin/core error */
+@keyframes rackdashAdminAttentionFlash{
+  0%,49.999%{
+    color:#ff4d57;
+    text-shadow:0 0 8px rgba(255,77,87,.45);
+  }
+  50%,100%{
+    color:#ffffff;
+    text-shadow:0 0 8px rgba(255,255,255,.32);
+  }
+}
+.admin-attention{
+  animation:rackdashAdminAttentionFlash 2s steps(1,end) infinite!important;
+  font-weight:950!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .admin-attention{
+    animation:none!important;
+    color:#ff4d57!important;
+    text-decoration:underline;
+    text-decoration-thickness:2px;
+  }
+}
