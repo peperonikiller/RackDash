@@ -34,7 +34,7 @@
         title="Plugins and system health"
       >
         <small>SYS</small>
-        <span>Plugins</span>
+        <span>Admin</span>
       </button>
     </nav>
     <div class="system-strip">
@@ -64,8 +64,8 @@
         <div class="plugin-head">
           <div>
             <span class="eyebrow">RACKDASH HEALTH</span>
-            <h1>Plugins</h1>
-            <div class="muted">Plugin versions, GitHub update checks, and RackDash health.</div>
+            <h1>Admin</h1>
+            <div class="muted">System controls, plugin health, GitHub updates, and auxiliary displays.</div>
           </div>
           <div class="health-head-actions"><button type="button" class="health-button health-restart" id="healthRestart">RESTART RACKDASH</button><button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button><button type="button" class="health-check-all" id="healthCheckAll">CHECK ALL UPDATES</button></div>
         </div>
@@ -78,6 +78,50 @@
           <article class="metric"><label>HEALTHY</label><strong data-health="healthy-count">--</strong><small>plugins healthy</small></article>
           <article class="metric"><label>ISSUES</label><strong data-health="issue-count">--</strong><small>need attention</small></article>
         </div>
+
+
+        <section class="surface admin-i2c-panel">
+          <div class="admin-section-head">
+            <div>
+              <div class="section-label">I2C DISPLAY</div>
+              <div class="muted">Drive a small OLED from RackDash for system status, plugin output, or a static monochrome icon.</div>
+            </div>
+            <div class="i2c-state" id="i2cState">NOT CONFIGURED</div>
+          </div>
+
+          <div class="i2c-config-grid">
+            <label class="i2c-toggle"><input type="checkbox" id="i2cEnabled"> <span>ENABLE DISPLAY</span></label>
+            <label><span>DISPLAY</span><select id="i2cDisplay"></select></label>
+            <label><span>MODE</span>
+              <select id="i2cMode">
+                <option value="system">System Only</option>
+                <option value="system_plugin">System + Plugins</option>
+                <option value="icon">Static Icon</option>
+              </select>
+            </label>
+            <label><span>BUS</span><input id="i2cBus" type="number" value="1" min="0" max="9"></label>
+            <label><span>ADDRESS</span><input id="i2cAddress" value="0x3C"></label>
+            <label><span>ROTATE</span><input id="i2cRotate" type="number" value="8" min="2"><small>seconds</small></label>
+            <label><span>CONTRAST</span><input id="i2cContrast" type="number" value="255" min="0" max="255"></label>
+          </div>
+
+          <div class="i2c-actions">
+            <button type="button" id="i2cSave">SAVE / CONNECT</button>
+            <button type="button" id="i2cTest">TEST DISPLAY</button>
+            <span id="i2cMessage" class="muted"></span>
+          </div>
+
+          <div class="i2c-icon-panel" id="i2cIconPanel">
+            <div>
+              <strong>STATIC ICON</strong>
+              <div class="muted" id="i2cIconLimit">Select a display to see the maximum image size.</div>
+            </div>
+            <input id="i2cIconFile" type="file" accept="image/png,image/jpeg,image/webp,image/bmp">
+            <button type="button" id="i2cUploadIcon">UPLOAD + CONVERT</button>
+          </div>
+
+          <div class="i2c-runtime" id="i2cRuntime"></div>
+        </section>
 
         <section class="surface health-install-panel">
 <div class="section-label">INSTALL THIRD-PARTY PLUGIN</div>

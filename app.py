@@ -16,12 +16,13 @@ from plugin_manager import PluginManager
 from health import github_update_status
 from plugin_installer import PluginInstaller
 from config_manager import ensure_defaults, schema_values, update_schema_values, parse_env
+from i2c_display import I2CDisplayManager, I2C_CONFIG, DISPLAY_TYPES
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
 CORE_CONFIG = [
@@ -47,7 +48,7 @@ def discover_config_schemas(plugin_dir: Path):
     return rows
 
 app = Flask(__name__)
-ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
+ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
 load_dotenv(BASE_DIR / "config.env", override=True)
 plugins = PluginManager(app=app, plugin_dir=BASE_DIR / "plugins", state_file=BASE_DIR / "data" / "plugin_state.json")
 plugins.load_all()
@@ -90,9 +91,17 @@ def system_status() -> dict:
         "ram": psutil.virtual_memory().percent,
         "temp": temp,
         "uptime": int(time.time() - psutil.boot_time()),
+        "disk": psutil.disk_usage("/").percent,
         "ip": local_ip(),
         "version": APP_VERSION,
     }
+
+
+i2c_manager = I2CDisplayManager(
+    BASE_DIR / "config.env",
+    plugin_provider=lambda: [p for p in plugins._plugins if plugins.is_enabled(p.id)],
+)
+i2c_manager.start()
 
 
 @app.get("/")
@@ -158,6 +167,7 @@ def api_health():
 
     return jsonify({
         "system": system_status(),
+        "i2c": i2c_manager.status(),
         "plugins": rows,
         "app": {
             "name": APP_NAME,
@@ -265,6 +275,50 @@ def api_health_plugin_test(plugin_id: str):
             "error": plugin.public_error,
             "health": plugins.runtime_health(plugin, env_values),
         }), 200
+
+@app.get("/api/admin/i2c")
+def api_admin_i2c():
+    fields=schema_values(BASE_DIR / "config.env", I2C_CONFIG)
+    return jsonify({
+        "ok":True,
+        "fields":fields,
+        "displays":DISPLAY_TYPES,
+        "status":i2c_manager.status(),
+    })
+
+
+@app.post("/api/admin/i2c")
+def api_admin_i2c_save():
+    from flask import request
+    payload=request.get_json(silent=True) or {}
+    try:
+        status=i2c_manager.save_settings(payload)
+        return jsonify({"ok":True,"status":status})
+    except Exception as exc:
+        app.logger.exception("I2C settings save failed")
+        return jsonify({"ok":False,"error":str(exc)}),200
+
+
+@app.post("/api/admin/i2c/test")
+def api_admin_i2c_test():
+    try:
+        return jsonify({"ok":True,"status":i2c_manager.test()})
+    except Exception as exc:
+        app.logger.exception("I2C display test failed")
+        return jsonify({"ok":False,"error":str(exc)}),200
+
+
+@app.post("/api/admin/i2c/icon")
+def api_admin_i2c_icon():
+    from flask import request
+    upload=request.files.get("icon")
+    if upload is None or not upload.filename:
+        return jsonify({"ok":False,"error":"Choose an image first."}),400
+    try:
+        info=i2c_manager.save_icon(upload)
+        return jsonify({"ok":True,"image":info,"status":i2c_manager.status()})
+    except Exception as exc:
+        return jsonify({"ok":False,"error":str(exc)}),200
 
 
 @app.post("/api/health/restart")

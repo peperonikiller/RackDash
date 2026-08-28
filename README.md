@@ -251,3 +251,77 @@ PLUGIN_CONFIG = [
 
 RackDash reports the plugin as **Needs setup** until all required fields have
 values.
+
+
+## I2C OLED displays
+
+Admin includes an I2C Display section for small auxiliary OLEDs. Current
+controller presets include SH1106/SSH1106, SH1107, SSD1306 (128×64 and 128×32),
+SSD1309, SSD1325, and SSD1327.
+
+Modes:
+
+- **System Only** — IP, CPU, RAM, CPU temperature, root-disk usage, and uptime.
+- **System + Plugins** — rotates the system page with plugin-provided I2C frames.
+- **Static Icon** — uploads an image no larger than the selected display,
+  centers it, dithers it to monochrome, and displays it continuously.
+
+### Raspberry Pi wiring for SH1106 / SSH1106 I2C OLED
+
+Use 3.3 V unless the exact module documentation explicitly requires otherwise:
+
+| OLED | Raspberry Pi 5 |
+| --- | --- |
+| VCC | 3.3 V physical pin 1 |
+| GND | Ground physical pin 6 |
+| SDA | GPIO2 / SDA1 physical pin 3 |
+| SCL | GPIO3 / SCL1 physical pin 5 |
+
+Enable I2C and verify the module before enabling it in RackDash:
+
+```bash
+sudo raspi-config
+# Interface Options -> I2C -> Enable
+
+sudo apt install i2c-tools
+sudo usermod -aG i2c "$USER"
+sudo reboot
+```
+
+After reboot:
+
+```bash
+i2cdetect -y 1
+```
+
+Most SH1106 boards appear at `0x3c`; some use `0x3d`.
+
+### Plugin I2C output
+
+In **System + Plugins** mode, a plugin can participate by defining:
+
+```python
+def get_i2c_data():
+    return {
+        "title": "My Plugin",
+        "lines": [
+            "Status: Online",
+            "Value: 42"
+        ]
+    }
+```
+
+A plugin may also return an icon:
+
+```python
+def get_i2c_data():
+    return {
+        "title": "My Plugin",
+        "lines": ["3 active jobs"],
+        "icon": "my_plugin_icon.png"
+    }
+```
+
+The icon path can be absolute or relative to the plugin's Python file. If no
+text lines are provided, RackDash centers the icon on the display. Images are
+converted to a display-compatible monochrome frame automatically.

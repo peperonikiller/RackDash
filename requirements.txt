@@ -2,3 +2,5 @@ Flask>=3.0,<4
 requests>=2.31,<3
 psutil>=5.9,<8
 python-dotenv>=1.0,<2
+luma.oled>=3.13
+Pillow>=10

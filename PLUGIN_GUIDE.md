@@ -216,3 +216,42 @@ without that value.
 RackDash uses required fields to distinguish an API failure from an
 unconfigured plugin. Runtime health metrics are collected automatically around
 `get_data()`; plugin authors do not need to implement timing or error tracking.
+
+
+## Optional I2C display output
+
+When the administrator selects **System + Plugins**, RackDash looks for an
+optional `get_i2c_data()` function on enabled plugins.
+
+Text example:
+
+```python
+def get_i2c_data():
+    return {
+        "title": "Weather",
+        "lines": ["72F Clear", "Humidity 42%"]
+    }
+```
+
+Text plus icon:
+
+```python
+def get_i2c_data():
+    return {
+        "title": "Printer",
+        "lines": ["Printing", "Layer 53 / 240"],
+        "icon": "printer.png"
+    }
+```
+
+Icon-only:
+
+```python
+def get_i2c_data():
+    return {"icon": "logo.png"}
+```
+
+RackDash resolves relative icon paths from the plugin file's directory, scales
+them down as needed, and converts them to the target display's monochrome image
+format. The display manager handles rotation between System and plugin frames;
+plugin authors should not create their own I2C connection or display thread.

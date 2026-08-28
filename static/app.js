@@ -202,6 +202,57 @@
     return"Waiting";
   }
 
+
+  let i2cDisplaySpecs={};
+
+  function renderI2C(status){
+    const state=document.getElementById("i2cState");
+    if(!state)return;
+    document.getElementById("i2cEnabled").checked=!!status.enabled;
+    document.getElementById("i2cMode").value=status.mode||"system";
+    document.getElementById("i2cBus").value=status.bus??1;
+    document.getElementById("i2cAddress").value=status.address||"0x3C";
+    document.getElementById("i2cRotate").value=status.rotate_seconds??8;
+    document.getElementById("i2cContrast").value=status.contrast??255;
+
+    if(!status.enabled){state.textContent="DISABLED";state.className="i2c-state";}
+    else if(status.connected){state.textContent="CONNECTED";state.className="i2c-state online";}
+    else{state.textContent="ERROR";state.className="i2c-state error";}
+
+    const runtime=document.getElementById("i2cRuntime");
+    runtime.innerHTML=[
+      `DISPLAY ${status.label||"--"}`,
+      `SOURCE ${status.active_source||"--"}`,
+      `SIZE ${status.width||"--"}×${status.height||"--"}`,
+      status.last_error?`ERROR ${status.last_error}`:"NO ERRORS"
+    ].map(x=>`<span>${RackDash.escape(x)}</span>`).join("");
+    updateI2CIconLimit();
+  }
+
+  async function loadI2C(){
+    try{
+      const r=await fetch("/api/admin/i2c",{cache:"no-store"});
+      const data=await r.json();
+      if(!data.ok)return;
+      i2cDisplaySpecs=data.displays||{};
+      const select=document.getElementById("i2cDisplay");
+      const current=data.status?.display||"sh1106_128x64";
+      select.innerHTML=Object.entries(i2cDisplaySpecs).map(([key,s])=>
+        `<option value="${RackDash.escape(key)}">${RackDash.escape(s.label)}</option>`).join("");
+      select.value=current;
+      renderI2C(data.status||{});
+    }catch(e){}
+  }
+
+  function updateI2CIconLimit(){
+    const key=document.getElementById("i2cDisplay")?.value;
+    const spec=i2cDisplaySpecs[key];
+    const label=document.getElementById("i2cIconLimit");
+    if(label&&spec)label.textContent=`Maximum upload: ${spec.width}×${spec.height}px. RackDash converts it to monochrome automatically.`;
+    const panel=document.getElementById("i2cIconPanel");
+    if(panel)panel.style.opacity=document.getElementById("i2cMode")?.value==="icon"?"1":".58";
+  }
+
   async function loadHealth(){
     if(!healthPage)return;
     try{
@@ -263,6 +314,7 @@
       list.querySelectorAll("[data-check-update]").forEach(btn=>{
         btn.addEventListener("click",()=>checkPluginUpdate(btn.dataset.checkUpdate,btn));
       });
+      renderI2C(data.i2c||{});
       document.querySelector('[data-health="updates"]').textContent="0";
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
@@ -378,6 +430,48 @@
 
   tabs.forEach((tab,i)=>tab.addEventListener("click",()=>show(i,true)));
   healthTab?.addEventListener("click",()=>showHealth());
+  document.getElementById("i2cDisplay")?.addEventListener("change",updateI2CIconLimit);
+  document.getElementById("i2cMode")?.addEventListener("change",updateI2CIconLimit);
+
+  document.getElementById("i2cSave")?.addEventListener("click",async()=>{
+    const message=document.getElementById("i2cMessage");message.textContent="Saving...";
+    const payload={
+      enabled:document.getElementById("i2cEnabled").checked,
+      display:document.getElementById("i2cDisplay").value,
+      mode:document.getElementById("i2cMode").value,
+      bus:document.getElementById("i2cBus").value,
+      address:document.getElementById("i2cAddress").value,
+      rotate_seconds:document.getElementById("i2cRotate").value,
+      contrast:document.getElementById("i2cContrast").value
+    };
+    try{
+      const r=await fetch("/api/admin/i2c",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const x=await r.json();if(!x.ok)throw new Error(x.error||"Save failed");
+      renderI2C(x.status);message.textContent=x.status.connected?"Connected.":"Saved. Check I2C wiring/address if not connected.";
+    }catch(e){message.textContent=e.message;}
+  });
+
+  document.getElementById("i2cTest")?.addEventListener("click",async()=>{
+    const message=document.getElementById("i2cMessage");message.textContent="Testing...";
+    try{
+      const r=await fetch("/api/admin/i2c/test",{method:"POST"});const x=await r.json();
+      if(!x.ok)throw new Error(x.error||"Test failed");renderI2C(x.status);message.textContent="Test frame sent.";
+    }catch(e){message.textContent=e.message;}
+  });
+
+  document.getElementById("i2cUploadIcon")?.addEventListener("click",async()=>{
+    const file=document.getElementById("i2cIconFile").files?.[0];
+    const message=document.getElementById("i2cMessage");
+    if(!file){message.textContent="Choose an image first.";return;}
+    const body=new FormData();body.append("icon",file);
+    message.textContent="Converting image...";
+    try{
+      const r=await fetch("/api/admin/i2c/icon",{method:"POST",body});const x=await r.json();
+      if(!x.ok)throw new Error(x.error||"Upload failed");renderI2C(x.status);
+      message.textContent=`Icon stored (${x.image.width}×${x.image.height}) and converted to monochrome.`;
+    }catch(e){message.textContent=e.message;}
+  });
+
   document.getElementById("healthInstallButton")?.addEventListener("click",async()=>{const input=document.getElementById("healthInstallUrl"),button=document.getElementById("healthInstallButton"),status=document.getElementById("healthInstallStatus"),github_url=input.value.trim();if(!github_url){status.textContent="Enter a GitHub repository URL.";return;}button.disabled=true;status.textContent="Downloading manifest and validating plugin...";try{const r=await fetch("/api/health/plugins/install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({github_url})});const x=await r.json();if(!x.ok)throw new Error(x.error||"Install failed");status.textContent=`Installed ${x.plugin.name} v${x.plugin.version}. Restart RackDash to load it.`;input.value="";}catch(e){status.textContent=e.message;}finally{button.disabled=false;}});
   document.getElementById("healthCheckAll")?.addEventListener("click",async e=>{
     const button=e.currentTarget;
