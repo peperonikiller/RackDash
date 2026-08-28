@@ -417,13 +417,35 @@
       const data=await response.json();
       window.__RackDashHealth=data;
       healthPage.querySelector('[data-health="app-version"]').textContent=data.app?.version||"--";
-      healthPage.querySelector('[data-health="plugin-count"]').textContent=data.app?.plugin_count??"--";
+      healthPage.querySelector('[data-health="plugin-count"]').textContent=data.app?.plugin_discovered_count??data.app?.plugin_count??"--";
       healthPage.querySelector('[data-health="status"]').textContent="OK";
       const healthyCount=(data.plugins||[]).filter(p=>p.health?.status==="healthy").length;
-      const issueCount=(data.plugins||[]).filter(p=>["error","unconfigured"].includes(p.health?.status)).length;
+      const failedPlugins=data.plugin_failures||[];
+      const issueCount=(data.plugins||[]).filter(p=>["error","unconfigured"].includes(p.health?.status)).length+failedPlugins.length;
       healthPage.querySelector('[data-health="healthy-count"]').textContent=String(healthyCount);
       healthPage.querySelector('[data-health="issue-count"]').textContent=String(issueCount);
       healthPage.querySelector('[data-health="status"]').textContent=issueCount?"ATTENTION":"OK";
+
+      const failedPanel=document.getElementById("failedPluginPanel");
+      const failedList=document.getElementById("failedPluginList");
+      const failedCount=document.getElementById("failedPluginCount");
+      if(failedPanel&&failedList&&failedCount){
+        failedPanel.hidden=!failedPlugins.length;
+        failedCount.textContent=`${failedPlugins.length} FAILED`;
+        failedList.innerHTML=failedPlugins.map(f=>`
+          <div class="failed-plugin-row">
+            <div class="failed-plugin-main">
+              <div class="failed-plugin-name"><span class="health-dot error"></span>${RackDash.escape(f.filename||"Unknown plugin")}</div>
+              <div class="failed-plugin-meta">
+                <span>STAGE <b>${RackDash.escape((f.stage||"load").toUpperCase())}</b></span>
+                <span>TYPE <b>${RackDash.escape(f.error_type||"Error")}</b></span>
+              </div>
+              <div class="failed-plugin-error">${RackDash.escape(f.error||"Plugin failed to load")}</div>
+            </div>
+            <div class="failed-plugin-badge">QUARANTINED</div>
+          </div>
+        `).join("");
+      }
 
       const list=document.getElementById("healthPluginList");
       list.innerHTML=(data.plugins||[]).map(p=>`
@@ -488,7 +510,16 @@
       list.querySelectorAll("[data-plugin-debug]").forEach(btn=>btn.addEventListener("click",()=>debugPlugin(btn.dataset.pluginDebug)));
       list.querySelectorAll("[data-plugin-reload]").forEach(btn=>btn.addEventListener("click",async()=>{
         const id=btn.dataset.pluginReload;
-        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/reload`,{method:"POST"});const x=await r.json();if(!x.ok)throw new Error(x.error||"Reload failed");reloadAfterFrontendChange(`Reloaded ${x.plugin.name}`);}catch(e){alert(e.message);}
+        try{
+          const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/reload`,{method:"POST"});
+          const x=await r.json();
+          if(!x.ok)throw new Error(x.error||"Reload failed");
+          if(x.plugin?.restart_required){
+            await restartAndReload(`Reloading ${x.plugin.name}`);
+          }else{
+            reloadAfterFrontendChange(`Reloaded ${x.plugin.name}`);
+          }
+        }catch(e){alert(e.message);}
       }));
       list.querySelectorAll("[data-plugin-test]").forEach(btn=>btn.addEventListener("click",async()=>{
         btn.disabled=true;

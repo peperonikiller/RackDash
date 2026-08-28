@@ -23,7 +23,10 @@ class PluginInstaller:
     def _sources(self):
         try:return json.loads(self.source_file.read_text(encoding="utf-8"))
         except Exception:return {"plugins":{}}
-    def _save(self,p):self.source_file.write_text(json.dumps(p,indent=2),encoding="utf-8")
+    def _save(self,p):
+        temp=self.source_file.with_suffix(self.source_file.suffix+".tmp")
+        temp.write_text(json.dumps(p,indent=2),encoding="utf-8")
+        temp.replace(self.source_file)
     def source_for(self,id):return self._sources().get("plugins",{}).get(id)
     def _repo_info(self,url):
         parsed=parse_repo(url)
@@ -65,7 +68,10 @@ class PluginInstaller:
         m=self.manifest(url);content=self._raw(m["_owner"],m["_repo"],m["_branch"],m["entry"]);source=content.decode();self._validate(source,m)
         pid=m["id"];dest=self.plugin_dir/f"{pid}.py";sources=self._sources();known=sources.setdefault("plugins",{})
         if dest.exists() and pid not in known:raise ValueError(f"{pid}.py already exists and is not installer-managed")
-        self._backup(pid,dest,"update");dest.write_text(source,encoding="utf-8")
+        self._backup(pid,dest,"update")
+        temp=dest.with_suffix(".py.new")
+        temp.write_text(source,encoding="utf-8")
+        temp.replace(dest)
         known[pid]={"github_url":m["_repo_url"],"version":str(m["version"]),"entry":m["entry"],"branch":m["_branch"],"sha256":hashlib.sha256(content).hexdigest(),"installed_at":int(time.time()),"capabilities":m.get("capabilities",[])}
         self._save(sources);return {"id":pid,"name":m["name"],"version":str(m["version"]),"github_url":m["_repo_url"],"restart_required":True}
     def uninstall(self,pid):

@@ -18,7 +18,11 @@ def write_all(path:Path,values:dict[str,str]):
     for k,v in sorted(values.items()):
         lines.append(f"{k}={v}")
     lines.append("")
-    path.write_text("\n".join(lines),encoding="utf-8")
+    path.parent.mkdir(parents=True,exist_ok=True)
+    temp=path.with_suffix(path.suffix+".tmp")
+    temp.write_text("\n".join(lines),encoding="utf-8")
+    os.chmod(temp,0o600)
+    temp.replace(path)
     os.chmod(path,0o600)
 
 def ensure_defaults(path:Path,schemas):

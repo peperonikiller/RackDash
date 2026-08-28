@@ -286,3 +286,47 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 @keyframes rackdash-spin{to{transform:rotate(360deg)}}
 
 @media(max-width:800px){.admin-hero{display:grid}.admin-hero-actions{justify-content:flex-start}.admin-section-title{align-items:flex-start;display:grid}.admin-apply-note{margin-top:.2rem}}
+
+
+/* v2.6 reliability / plugin quarantine */
+.failed-plugin-panel{
+  margin-top:var(--gap)!important;
+  border-color:rgba(255,116,126,.34)!important;
+  background:linear-gradient(110deg,rgba(255,116,126,.035),rgba(255,255,255,.006))!important;
+}
+.failed-plugin-list{display:grid;gap:.45rem;margin-top:.6rem}
+.failed-plugin-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:.8rem;
+  align-items:center;
+  padding:.7rem .8rem;
+  border:1px solid rgba(255,116,126,.22);
+  border-radius:.52rem;
+  background:rgba(255,116,126,.025);
+}
+.failed-plugin-name{font-size:.76rem;font-weight:850;display:flex;align-items:center;gap:.35rem}
+.failed-plugin-meta{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:.26rem;font-size:.5rem;color:var(--muted)}
+.failed-plugin-meta b{color:#dce8ee}
+.failed-plugin-error{
+  margin-top:.35rem;
+  font-size:.56rem;
+  line-height:1.35;
+  color:#ff9ca3;
+  overflow-wrap:anywhere;
+}
+.failed-plugin-badge,.quarantine-chip{
+  border:1px solid rgba(255,116,126,.42);
+  background:rgba(255,116,126,.055);
+  color:#ff929b;
+  border-radius:.36rem;
+  padding:.27rem .42rem;
+  font-size:.48rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+@media(max-width:720px){
+  .failed-plugin-row{grid-template-columns:1fr}
+  .failed-plugin-badge{justify-self:start}
+}

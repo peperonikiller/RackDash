@@ -106,6 +106,16 @@
             <div class="admin-card-head"><div><div class="section-label">INSTALLED PLUGINS</div><div class="muted">Plugin code updates and visibility changes automatically reload the dashboard.</div></div></div>
             <div class="health-plugin-list" id="healthPluginList"></div>
           </section>
+          <section class="surface failed-plugin-panel" id="failedPluginPanel" hidden>
+            <div class="admin-card-head">
+              <div>
+                <div class="section-label">QUARANTINED PLUGINS</div>
+                <div class="muted">These files failed to load, but RackDash continued starting normally. Fix or remove the file, then restart RackDash.</div>
+              </div>
+              <span class="quarantine-chip" id="failedPluginCount">0 FAILED</span>
+            </div>
+            <div class="failed-plugin-list" id="failedPluginList"></div>
+          </section>
           <section class="surface health-install-panel compact-admin-card">
             <div class="admin-card-head"><div><div class="section-label">INSTALL THIRD-PARTY PLUGIN</div><div class="muted">Repository must contain rackdash-plugin.json. RackDash applies the install and reloads automatically.</div></div></div>
             <div class="health-install-row"><input id="healthInstallUrl" placeholder="https://github.com/owner/rackdash-plugin"><button id="healthInstallButton" type="button">INSTALL</button></div>

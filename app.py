@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.6.0"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
@@ -68,6 +68,17 @@ app = Flask(__name__)
 admin_security = AdminSecurity(BASE_DIR / "data" / "admin_auth.json")
 app.secret_key = admin_security.secret_key
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict")
+
+import logging
+from logging.handlers import RotatingFileHandler
+LOG_PATH = BASE_DIR / "data" / "rackdash.log"
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+_file_handler.setLevel(logging.INFO)
+app.logger.addHandler(_file_handler)
+app.logger.setLevel(logging.INFO)
+
 backup_manager = BackupManager(BASE_DIR)
 ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
 load_dotenv(BASE_DIR / "config.env", override=True)
@@ -81,17 +92,6 @@ official_plugin_updater = OfficialPluginUpdater(
     RACKDASH_GITHUB,
     branch="main",
 )
-
-import logging
-from logging.handlers import RotatingFileHandler
-LOG_PATH = BASE_DIR / "data" / "rackdash.log"
-LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
-_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-_file_handler.setLevel(logging.INFO)
-app.logger.addHandler(_file_handler)
-app.logger.setLevel(logging.INFO)
-
 
 def _check_core_update_now():
     return github_update_status(
@@ -276,11 +276,14 @@ def api_health():
         "updates": update_monitor.status(),
         "i2c": i2c_manager.status(),
         "plugins": rows,
+        "plugin_failures": plugins.failures(),
         "app": {
             "name": APP_NAME,
             "version": APP_VERSION,
             "github_url": RACKDASH_GITHUB,
             "plugin_count": len(rows),
+            "plugin_failure_count": len(plugins.failures()),
+            "plugin_discovered_count": len(rows) + len(plugins.failures()),
             "config_fields": schema_values(BASE_DIR / "config.env", CORE_CONFIG),
         },
     })
