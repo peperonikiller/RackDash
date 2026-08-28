@@ -86,11 +86,21 @@
   }
 
   function clearConnectionLost(){
+    const recovered=serverOffline;
     serverOffline=false;
     if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
     if(reconnectCountdownTimer){clearInterval(reconnectCountdownTimer);reconnectCountdownTimer=null;}
     const overlay=document.getElementById("connectionOverlay");
     if(overlay)overlay.hidden=true;
+
+    // A kiosk or other client may still have the old plugin HTML/CSS/JS in
+    // memory after RackDash or a plugin was updated elsewhere. If this page
+    // actually lost contact with RackDash and then successfully reconnects,
+    // force a cache-busted document reload so it receives the current plugin
+    // bundle and core frontend immediately.
+    if(recovered){
+      freshReload();
+    }
   }
 
   function showApplyOverlay(title="Applying changes",message="RackDash will refresh automatically."){
@@ -150,7 +160,7 @@
       if(reconnectCountdownTimer){clearInterval(reconnectCountdownTimer);reconnectCountdownTimer=null;}
       try{
         const response=await fetch("/api/system",{cache:"no-store"});
-        if(response.ok){window.location.reload();return;}
+        if(response.ok){freshReload();return;}
       }catch(e){}
       scheduleReconnectCheck();
     },30000);
