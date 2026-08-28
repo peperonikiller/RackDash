@@ -16,10 +16,28 @@ class CoreUpdater:
         release=self.latest_release()
         if not release:raise ValueError("No GitHub release is available yet.")
         assets=[a for a in release.get("assets",[]) if str(a.get("name","")).lower().endswith(".zip") and "rackdash" in str(a.get("name","")).lower()]
-        if not assets:raise ValueError("Latest release has no RackDash .zip asset.")
+        # Prefer an explicitly attached RackDash release asset. If the release
+        # has no assets, fall back to GitHub's automatically generated zipball.
+        # This makes the Update button work with ordinary GitHub releases too.
+        if assets:
+            download_url=assets[0]["browser_download_url"]
+            download_source="release_asset"
+        else:
+            download_url=release.get("zipball_url")
+            download_source="github_zipball"
+        if not download_url:
+            raise ValueError("Latest GitHub release has no downloadable ZIP source.")
+
         self.backups.create("pre-core-update")
         with tempfile.TemporaryDirectory(prefix="rackdash-update-") as td:
-            archive=Path(td)/"release.zip";r=requests.get(assets[0]["browser_download_url"],timeout=60);r.raise_for_status();archive.write_bytes(r.content)
+            archive=Path(td)/"release.zip"
+            r=requests.get(
+                download_url,
+                headers={"Accept":"application/vnd.github+json","User-Agent":"RackDash-Updater"},
+                timeout=60,
+            )
+            r.raise_for_status()
+            archive.write_bytes(r.content)
             extract=Path(td)/"extract";extract.mkdir()
             with zipfile.ZipFile(archive) as z:
                 for n in z.namelist():
@@ -48,4 +66,8 @@ class CoreUpdater:
                     if target.is_dir():shutil.rmtree(target)
                     else:target.unlink()
                 shutil.copytree(item,target) if item.is_dir() else shutil.copy2(item,target)
-        return {"version":release.get("tag_name") or release.get("name"),"restart_required":True}
+        return {
+            "version":release.get("tag_name") or release.get("name"),
+            "restart_required":True,
+            "download_source":download_source,
+        }

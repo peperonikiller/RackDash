@@ -14,17 +14,32 @@ CACHE_SECONDS = 900
 
 def _version_tuple(value: str):
     """
-    Convert common semantic-ish versions to a tuple suitable for comparison.
+    Parse semantic-ish version text into numeric components.
 
     Examples:
-        v1.2.3       -> (1, 2, 3)
-        2.0          -> (2, 0)
-        release-3.1  -> (3, 1)
-
-    This intentionally avoids adding packaging/version dependencies to RackDash.
+        v2.2.0 -> (2, 2, 0)
+        2.2    -> (2, 2)
     """
     nums = re.findall(r"\d+", value or "")
     return tuple(int(x) for x in nums) if nums else (0,)
+
+
+def _compare_versions(left: str, right: str) -> int:
+    """
+    Compare numeric version components while treating omitted trailing zeros
+    as equivalent. This fixes cases such as v2.0.0 versus 2.0.
+
+    Returns:
+        -1 when left < right
+         0 when left == right
+         1 when left > right
+    """
+    a = _version_tuple(left)
+    b = _version_tuple(right)
+    width = max(len(a), len(b))
+    a = a + (0,) * (width - len(a))
+    b = b + (0,) * (width - len(b))
+    return (a > b) - (a < b)
 
 
 def _github_repo(url: str) -> Optional[tuple[str, str]]:
@@ -50,7 +65,7 @@ def _github_repo(url: str) -> Optional[tuple[str, str]]:
     return owner, repo
 
 
-def github_update_status(github_url: str, current_version: str) -> dict:
+def github_update_status(github_url: str, current_version: str, force: bool = False) -> dict:
     """
     Check the latest GitHub release first, then fall back to the latest tag.
 
@@ -70,7 +85,7 @@ def github_update_status(github_url: str, current_version: str) -> dict:
     cached = _GITHUB_CACHE.get(cache_key)
     now = time.time()
 
-    if cached and now - cached["checked_at"] < CACHE_SECONDS:
+    if cached and not force and now - cached["checked_at"] < CACHE_SECONDS:
         remote = cached["remote"]
         source = cached["source"]
     else:
@@ -122,13 +137,12 @@ def github_update_status(github_url: str, current_version: str) -> dict:
             "latest": None,
         }
 
-    current_tuple = _version_tuple(current_version)
-    latest_tuple = _version_tuple(remote)
+    comparison = _compare_versions(current_version, remote)
 
-    if latest_tuple > current_tuple:
+    if comparison < 0:
         status = "update_available"
         message = f"Update available: {remote}"
-    elif latest_tuple == current_tuple:
+    elif comparison == 0:
         status = "current"
         message = "Up to date"
     else:

@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.2.1"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
@@ -260,9 +260,10 @@ def api_health_plugin_update(plugin_id: str):
                 plugin.id,
                 plugin.source_path,
                 plugin.plugin_version,
+                force=True,
             )
         else:
-            result = github_update_status(plugin.github_url, plugin.plugin_version)
+            result = github_update_status(plugin.github_url, plugin.plugin_version, force=True)
         return jsonify({"ok": True, "plugin": plugin_id, "update": result})
     except Exception:
         app.logger.exception("Update check failed for plugin %s", plugin_id)
@@ -389,7 +390,7 @@ def api_health_plugin_test(plugin_id: str):
 @app.get("/api/health/rackdash/update")
 def api_health_rackdash_update():
     try:
-        result = github_update_status(RACKDASH_GITHUB, APP_VERSION)
+        result = github_update_status(RACKDASH_GITHUB, APP_VERSION, force=True)
         return jsonify({
             "ok": True,
             "current": APP_VERSION,

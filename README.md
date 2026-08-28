@@ -525,3 +525,18 @@ Official plugin source repository:
 ```text
 https://github.com/peperonikiller/RackDash/tree/main/plugins
 ```
+
+
+## v2.2.1 update-system fixes
+
+Manual RackDash and plugin update checks now bypass the GitHub status cache so a
+release that was published moments ago is visible immediately.
+
+Version comparison now treats equivalent forms such as `2.0`, `v2.0`, and
+`v2.0.0` as the same version instead of incorrectly reporting the longer local
+form as "ahead."
+
+RackDash self-update prefers a RackDash ZIP attached to the GitHub Release. If
+there is no release asset, it now falls back to GitHub's automatic release
+`zipball_url`. This allows a normal GitHub Release with no attached assets to
+still be installed from Admin.

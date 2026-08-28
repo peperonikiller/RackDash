@@ -15,6 +15,15 @@ def _version_tuple(value: str):
     return tuple(int(x) for x in nums) if nums else (0,)
 
 
+def _compare_versions(left: str, right: str) -> int:
+    a = _version_tuple(left)
+    b = _version_tuple(right)
+    width = max(len(a), len(b))
+    a = a + (0,) * (width - len(a))
+    b = b + (0,) * (width - len(b))
+    return (a > b) - (a < b)
+
+
 def _github_repo(url: str) -> Optional[tuple[str, str]]:
     if not url:
         return None
@@ -89,11 +98,11 @@ class OfficialPluginUpdater:
                         pass
         return values
 
-    def check(self, plugin_id: str, source_path: str, current_version: str):
+    def check(self, plugin_id: str, source_path: str, current_version: str, force: bool = False):
         cache_key = (source_path, current_version)
         now = time.time()
         cached = self._cache.get(cache_key)
-        if cached and now - cached["checked_at"] < self.cache_seconds:
+        if cached and not force and now - cached["checked_at"] < self.cache_seconds:
             return dict(cached["result"])
 
         source = self._fetch_source(source_path)
@@ -108,13 +117,12 @@ class OfficialPluginUpdater:
         if not remote_version:
             raise ValueError("Official plugin source does not declare PLUGIN_VERSION")
 
-        current_tuple = _version_tuple(current_version)
-        latest_tuple = _version_tuple(remote_version)
+        comparison = _compare_versions(current_version, remote_version)
 
-        if latest_tuple > current_tuple:
+        if comparison < 0:
             status = "update_available"
             message = f"Official update available: v{remote_version}"
-        elif latest_tuple == current_tuple:
+        elif comparison == 0:
             status = "current"
             message = "Official plugin is up to date"
         else:
