@@ -13,7 +13,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "twitch"
 PLUGIN_NAME = "Twitch"
-PLUGIN_VERSION = "3.1.0"
+PLUGIN_VERSION = "3.1.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/twitch.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -190,13 +190,18 @@ PLUGIN_CSS = r'''
 
 .plugin-twitch .twitch-live-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(330px,520px));
   gap:var(--gap);
+  justify-content:start;
+  align-items:start;
 }
 
 .plugin-twitch .twitch-live-card{
   position:relative;
-  min-height:13.2rem;
+  width:100%;
+  max-width:520px;
+  aspect-ratio:16/9;
+  min-height:0;
   overflow:hidden;
   border:1px solid rgba(145,70,255,.35);
   border-radius:.72rem;
@@ -241,7 +246,9 @@ PLUGIN_CSS = r'''
 .plugin-twitch .twitch-live-overlay{
   position:relative;
   z-index:3;
-  min-height:13.2rem;
+  width:100%;
+  height:100%;
+  min-height:0;
   display:grid;
   grid-template-rows:auto 1fr auto;
   padding:.72rem;
@@ -465,9 +472,9 @@ PLUGIN_CSS = r'''
 
 @media(min-width:1200px) and (max-height:520px){
   .plugin-twitch .twitch-hero{min-height:5.2rem;padding:.65rem .8rem}
-  .plugin-twitch .twitch-live-card,
-  .plugin-twitch .twitch-live-overlay{min-height:10rem}
-  .plugin-twitch .twitch-live-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .plugin-twitch .twitch-live-card{max-width:460px}
+  .plugin-twitch .twitch-live-overlay{min-height:0}
+  .plugin-twitch .twitch-live-grid{grid-template-columns:repeat(auto-fit,minmax(300px,460px))}
   .plugin-twitch .twitch-offline-card{min-height:5.2rem}
 }
 
@@ -477,6 +484,7 @@ PLUGIN_CSS = r'''
   .plugin-twitch .twitch-summary-metric{text-align:left}
   .plugin-twitch .twitch-live-grid,
   .plugin-twitch .twitch-offline-grid{grid-template-columns:1fr}
+  .plugin-twitch .twitch-live-card{max-width:none}
 }
 
 @media(prefers-reduced-motion:reduce){

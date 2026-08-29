@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const cfg = window.RACKDASH_CONFIG || {plugins:[], rotateSeconds:12};
+  const cfg = window.RACKDASH_CONFIG || {plugins:[], rotateSeconds:30};
   const pluginMeta = cfg.plugins || [];
   const pluginById = Object.fromEntries(pluginMeta.map(p => [p.id,p]));
   const tabPluginIds = pluginMeta.map(p => p.id);
@@ -241,7 +241,11 @@
     }
   }
 
+  let autoScrollVisitToken=0;
+
   function stopAutoScroll(resetInterruption=false){
+    autoScrollVisitToken++;
+
     if(autoScrollTimer){
       clearTimeout(autoScrollTimer);
       autoScrollTimer=null;
@@ -250,9 +254,107 @@
       cancelAnimationFrame(autoScrollFrame);
       autoScrollFrame=null;
     }
+
     autoScrollStartedAt=0;
     autoScrollLastFrame=0;
-    if(resetInterruption)autoScrollInterrupted=false;
+
+    if(resetInterruption){
+      autoScrollInterrupted=false;
+    }
+  }
+
+  function autoScrollSpeed(distance,rotateFor){
+    const remaining=Math.max(6,Number(rotateFor||30)-5);
+    return Math.max(
+      16,
+      Math.min(38,Number(distance||0)/remaining)
+    );
+  }
+
+  function beginAutoScroll(id,visitToken,retry=0){
+    if(
+      visitToken!==autoScrollVisitToken||
+      autoScrollInterrupted||
+      showingHealth||
+      logoMode||
+      document.hidden||
+      tabPluginIds[activeIndex]!==id
+    ){
+      return;
+    }
+
+    const page=pages.find(item=>item.dataset.plugin===id);
+    const scroller=page?.querySelector(".plugin-scroll");
+    if(!scroller)return;
+
+    const bottom=Math.max(
+      0,
+      scroller.scrollHeight-scroller.clientHeight
+    );
+
+    // Plugins can still be rendering when the five-second delay expires.
+    // Retry for up to ten seconds so late content does not permanently skip
+    // auto-scroll for this tab visit.
+    if(bottom<8){
+      if(retry<20){
+        autoScrollTimer=setTimeout(()=>{
+          autoScrollTimer=null;
+          beginAutoScroll(id,visitToken,retry+1);
+        },500);
+      }
+      return;
+    }
+
+    const meta=pluginById[id]||{};
+    const rotateFor=Math.max(
+      3,
+      Number(meta.rotation_seconds||cfg.rotateSeconds||30)
+    );
+    const distance=Math.max(0,bottom-scroller.scrollTop);
+    const pixelsPerSecond=autoScrollSpeed(distance,rotateFor);
+
+    autoScrollStartedAt=performance.now();
+    autoScrollLastFrame=autoScrollStartedAt;
+
+    const frame=now=>{
+      if(
+        visitToken!==autoScrollVisitToken||
+        autoScrollInterrupted||
+        showingHealth||
+        logoMode||
+        document.hidden||
+        tabPluginIds[activeIndex]!==id
+      ){
+        autoScrollFrame=null;
+        return;
+      }
+
+      const currentBottom=Math.max(
+        0,
+        scroller.scrollHeight-scroller.clientHeight
+      );
+
+      if(scroller.scrollTop>=currentBottom-1){
+        scroller.scrollTop=currentBottom;
+        autoScrollFrame=null;
+        return;
+      }
+
+      const dt=Math.min(
+        .05,
+        Math.max(0,(now-autoScrollLastFrame)/1000)
+      );
+      autoScrollLastFrame=now;
+
+      scroller.scrollTop=Math.min(
+        currentBottom,
+        scroller.scrollTop+pixelsPerSecond*dt
+      );
+
+      autoScrollFrame=requestAnimationFrame(frame);
+    };
+
+    autoScrollFrame=requestAnimationFrame(frame);
   }
 
   function scheduleAutoScroll(){
@@ -262,78 +364,46 @@
 
     const id=tabPluginIds[activeIndex];
     const meta=pluginById[id]||{};
+
     if(meta.auto_scroll!==true)return;
 
-    const page=pages[activeIndex];
+    const visitToken=autoScrollVisitToken;
+    const page=pages.find(item=>item.dataset.plugin===id);
     const scroller=page?.querySelector(".plugin-scroll");
     if(!scroller)return;
 
-    const maxScroll=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
-    if(maxScroll<8)return;
-
-    // Any deliberate user scroll/touch interaction stops automatic scrolling
-    // until RackDash changes tabs and returns to this plugin.
+    // Any deliberate user interaction cancels automatic scrolling until this
+    // plugin is visited again.
     const interrupt=()=>{
-      if(autoScrollTimer||autoScrollFrame){
+      if(
+        visitToken===autoScrollVisitToken&&
+        (autoScrollTimer||autoScrollFrame)
+      ){
         autoScrollInterrupted=true;
         stopAutoScroll(false);
       }
     };
-    scroller.addEventListener("wheel",interrupt,{once:true,passive:true});
-    scroller.addEventListener("touchstart",interrupt,{once:true,passive:true});
 
+    scroller.addEventListener(
+      "wheel",
+      interrupt,
+      {once:true,passive:true}
+    );
+    scroller.addEventListener(
+      "touchstart",
+      interrupt,
+      {once:true,passive:true}
+    );
+    scroller.addEventListener(
+      "pointerdown",
+      interrupt,
+      {once:true,passive:true}
+    );
+
+    // Required behavior: do nothing for five seconds, then begin scrolling.
     autoScrollTimer=setTimeout(()=>{
       autoScrollTimer=null;
-      if(autoScrollInterrupted||showingHealth||logoMode||document.hidden)return;
-      if(tabPluginIds[activeIndex]!==id)return;
-
-      const rotateFor=Math.max(
-        3,
-        Number(meta.rotation_seconds||cfg.rotateSeconds||30)
-      );
-      const remaining=Math.max(4,rotateFor-5);
-      const distance=Math.max(0,scroller.scrollHeight-scroller.clientHeight-scroller.scrollTop);
-
-      // Aim to reveal most/all of the page before rotation without racing
-      // through short layouts. Keep speed intentionally gentle.
-      const pixelsPerSecond=Math.max(
-        12,
-        Math.min(42,distance/remaining)
-      );
-
-      autoScrollStartedAt=performance.now();
-      autoScrollLastFrame=autoScrollStartedAt;
-
-      const frame=now=>{
-        if(
-          autoScrollInterrupted||
-          showingHealth||
-          logoMode||
-          document.hidden||
-          tabPluginIds[activeIndex]!==id
-        ){
-          autoScrollFrame=null;
-          return;
-        }
-
-        const dt=Math.min(.05,(now-autoScrollLastFrame)/1000);
-        autoScrollLastFrame=now;
-        const bottom=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
-
-        if(scroller.scrollTop>=bottom-1){
-          scroller.scrollTop=bottom;
-          autoScrollFrame=null;
-          return;
-        }
-
-        scroller.scrollTop=Math.min(
-          bottom,
-          scroller.scrollTop+pixelsPerSecond*dt
-        );
-        autoScrollFrame=requestAnimationFrame(frame);
-      };
-
-      autoScrollFrame=requestAnimationFrame(frame);
+      beginAutoScroll(id,visitToken,0);
     },5000);
   }
 
