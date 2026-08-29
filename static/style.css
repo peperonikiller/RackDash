@@ -31,7 +31,209 @@ button,input{font:inherit}
   gap:clamp(.65rem,1.5vw,1.2rem);padding:0 clamp(.7rem,1.5vw,1.2rem);
   border-bottom:1px solid var(--border);background:rgba(7,12,16,.92)
 }
-.brand{appearance:none;border:0;background:transparent;color:inherit;padding:.28rem .15rem;font:inherit;font-weight:950;font-size:clamp(.95rem,2vw,1.45rem);letter-spacing:.12em;white-space:nowrap;cursor:pointer;border-radius:.35rem;touch-action:manipulation;transition:filter .18s ease,transform .18s ease}.brand span{color:#58d67d}.brand:hover,.brand:focus-visible{filter:drop-shadow(0 0 9px rgba(88,214,125,.34))}.brand:active{transform:scale(.97)}.brand:focus-visible{outline:1px solid rgba(88,214,125,.55);outline-offset:3px}
+.brand{
+  appearance:none;
+  position:relative;
+  display:grid;
+  place-items:center;
+  overflow:visible;
+  border:0;
+  background:transparent;
+  color:inherit;
+  width:clamp(8.2rem,13vw,11rem);
+  min-width:0;
+  padding:.28rem .15rem;
+  font:inherit;
+  font-weight:950;
+  font-size:clamp(.95rem,2vw,1.45rem);
+  letter-spacing:.12em;
+  white-space:nowrap;
+  cursor:pointer;
+  border-radius:.35rem;
+  touch-action:manipulation;
+  transition:
+    width .68s cubic-bezier(.22,.8,.2,1),
+    filter .18s ease,
+    transform .18s ease;
+}
+.brand:hover,.brand:focus-visible{
+  filter:drop-shadow(0 0 9px rgba(88,214,125,.34));
+}
+.brand:active{transform:scale(.97)}
+.brand:focus-visible{
+  outline:1px solid rgba(88,214,125,.55);
+  outline-offset:3px;
+}
+.brand-full,
+.brand-compact{
+  grid-area:1/1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transform-origin:center;
+}
+.brand-full{
+  opacity:1;
+  transform:translateY(0) scale(1);
+  transition:
+    opacity .38s ease,
+    transform .58s cubic-bezier(.22,.8,.2,1);
+}
+.brand-dash,
+.brand-d{color:#58d67d}
+.brand-compact{
+  opacity:0;
+  transform:scale(.72) rotateX(28deg);
+  font-size:1.08em;
+  letter-spacing:.04em;
+  transition:
+    opacity .4s ease .18s,
+    transform .6s cubic-bezier(.22,.8,.2,1) .08s;
+}
+.brand-compact .brand-r{color:#f2f7f4}
+.brand-compact .brand-d{
+  margin-left:.04em;
+  text-shadow:0 0 10px rgba(88,214,125,.18);
+}
+
+/* Five-minute state: give the header mark some life without becoming noisy. */
+.brand.logo-awake{
+  isolation:isolate;
+  animation:rackdashHeaderLogoBreathe 4.8s ease-in-out infinite;
+}
+.brand.logo-awake::before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  left:5%;
+  right:5%;
+  bottom:.08rem;
+  height:1px;
+  opacity:0;
+  background:linear-gradient(
+    90deg,
+    transparent,
+    rgba(88,214,125,.25) 18%,
+    rgba(130,210,246,.55) 50%,
+    rgba(88,214,125,.25) 82%,
+    transparent
+  );
+  box-shadow:0 0 10px rgba(88,214,125,.22);
+  animation:rackdashHeaderUnderline 5.8s ease-in-out infinite;
+}
+.brand.logo-awake::after{
+  content:"";
+  position:absolute;
+  inset:-.15rem -.35rem;
+  pointer-events:none;
+  opacity:0;
+  border-radius:.4rem;
+  background:linear-gradient(
+    105deg,
+    transparent 0 38%,
+    rgba(255,255,255,.025) 44%,
+    rgba(88,214,125,.16) 49%,
+    rgba(130,210,246,.12) 52%,
+    transparent 59% 100%
+  );
+  transform:translateX(-45%);
+  animation:rackdashHeaderSweep 6.4s ease-in-out infinite;
+}
+.brand.logo-awake .brand-rack{
+  animation:rackdashRackPulse 5.2s ease-in-out infinite;
+}
+.brand.logo-awake .brand-dash{
+  animation:rackdashDashPulse 5.2s ease-in-out infinite;
+}
+
+/* Ten-minute state: stop decorative motion and reclaim header space. */
+.brand.logo-compact{
+  width:2.65rem;
+  animation:none!important;
+  filter:none;
+}
+.brand.logo-compact::before,
+.brand.logo-compact::after{
+  content:none;
+  animation:none!important;
+}
+.brand.logo-compact .brand-full{
+  opacity:0;
+  transform:translateY(-.1rem) scale(.74);
+  pointer-events:none;
+}
+.brand.logo-compact .brand-compact{
+  opacity:1;
+  transform:scale(1) rotateX(0);
+}
+.brand.logo-compact .brand-rack,
+.brand.logo-compact .brand-dash{
+  animation:none!important;
+}
+
+@keyframes rackdashHeaderLogoBreathe{
+  0%,100%{
+    filter:drop-shadow(0 0 0 rgba(88,214,125,0));
+    transform:translateY(0);
+  }
+  45%,55%{
+    filter:
+      drop-shadow(0 0 5px rgba(88,214,125,.16))
+      drop-shadow(0 0 10px rgba(130,210,246,.07));
+    transform:translateY(-1px);
+  }
+}
+@keyframes rackdashHeaderUnderline{
+  0%,16%,84%,100%{opacity:0;transform:scaleX(.35)}
+  35%,65%{opacity:.82;transform:scaleX(1)}
+}
+@keyframes rackdashHeaderSweep{
+  0%,22%{opacity:0;transform:translateX(-48%)}
+  34%{opacity:.8}
+  52%{opacity:.48}
+  68%,100%{opacity:0;transform:translateX(48%)}
+}
+@keyframes rackdashRackPulse{
+  0%,100%{color:#f2f7f4;text-shadow:none}
+  50%{color:#fff;text-shadow:0 0 7px rgba(130,210,246,.18)}
+}
+@keyframes rackdashDashPulse{
+  0%,100%{
+    color:#58d67d;
+    text-shadow:0 0 0 rgba(88,214,125,0);
+  }
+  50%{
+    color:#72e894;
+    text-shadow:
+      0 0 7px rgba(88,214,125,.42),
+      0 0 14px rgba(88,214,125,.14);
+  }
+}
+
+.sr-only{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  .brand.logo-awake,
+  .brand.logo-awake::before,
+  .brand.logo-awake::after,
+  .brand.logo-awake .brand-rack,
+  .brand.logo-awake .brand-dash{
+    animation:none!important;
+  }
+  .brand.logo-awake{
+    filter:drop-shadow(0 0 7px rgba(88,214,125,.18));
+  }
+}
 .tabs{
   display:flex;align-items:stretch;gap:.15rem;min-width:0;height:100%;
   overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x

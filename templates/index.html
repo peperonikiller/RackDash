@@ -22,7 +22,11 @@
     <div class="logo-scanline" aria-hidden="true"></div>
   </div>
   <header class="topbar">
-    <button type="button" class="brand" id="rackdashLogoButton" aria-label="Show RackDash fullscreen logo">RACK<span>DASH</span></button>
+    <button type="button" class="brand" id="rackdashLogoButton" aria-label="Show RackDash fullscreen logo">
+      <span class="brand-full" aria-hidden="true"><span class="brand-rack">RACK</span><span class="brand-dash">DASH</span></span>
+      <span class="brand-compact" aria-hidden="true"><span class="brand-r">R</span><span class="brand-d">D</span></span>
+      <span class="sr-only">RackDash</span>
+    </button>
     <nav class="tabs" id="tabs" aria-label="Dashboard tabs">
       {% for plugin in plugins %}
       <button

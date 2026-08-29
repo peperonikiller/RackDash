@@ -84,6 +84,10 @@
   let healthRefreshTimer=null;
 
 
+  const LOGO_SESSION_STARTED_KEY="rackdash-logo-session-started";
+  const LOGO_AWAKE_AFTER_MS=5*60*1000;
+  const LOGO_COMPACT_AFTER_MS=10*60*1000;
+  let logoStageTimer=null;
   const LAST_PAGE_KEY="rackdash-last-page";
   const ADMIN_CHECK_AT_KEY="rackdash-admin-update-check-at";
   const ADMIN_CHECK_VERSION_KEY="rackdash-admin-update-check-version";
@@ -1448,6 +1452,55 @@
   },{passive:true});
 
 
+  function logoSessionStartedAt(){
+    const now=Date.now();
+    try{
+      const stored=Number(sessionStorage.getItem(LOGO_SESSION_STARTED_KEY)||0);
+      if(Number.isFinite(stored)&&stored>0&&stored<=now){
+        return stored;
+      }
+      sessionStorage.setItem(LOGO_SESSION_STARTED_KEY,String(now));
+    }catch(_e){}
+    return now;
+  }
+
+  function applyHeaderLogoStage(){
+    const button=document.getElementById("rackdashLogoButton");
+    if(!button)return;
+
+    const elapsed=Math.max(0,Date.now()-logoSessionStartedAt());
+    const awake=elapsed>=LOGO_AWAKE_AFTER_MS&&elapsed<LOGO_COMPACT_AFTER_MS;
+    const compact=elapsed>=LOGO_COMPACT_AFTER_MS;
+
+    button.classList.toggle("logo-awake",awake);
+    button.classList.toggle("logo-compact",compact);
+    button.setAttribute(
+      "aria-label",
+      compact
+        ?"RackDash — show fullscreen logo"
+        :"Show RackDash fullscreen logo"
+    );
+
+    if(logoStageTimer){
+      clearTimeout(logoStageTimer);
+      logoStageTimer=null;
+    }
+
+    let nextAt=null;
+    if(elapsed<LOGO_AWAKE_AFTER_MS){
+      nextAt=LOGO_AWAKE_AFTER_MS-elapsed;
+    }else if(elapsed<LOGO_COMPACT_AFTER_MS){
+      nextAt=LOGO_COMPACT_AFTER_MS-elapsed;
+    }
+
+    if(nextAt!=null){
+      logoStageTimer=setTimeout(
+        applyHeaderLogoStage,
+        Math.max(50,nextAt+25)
+      );
+    }
+  }
+
   function enterLogoMode(){
     if(logoMode)return;
     stopAutoScroll(true);
@@ -1477,6 +1530,7 @@
 
   document.addEventListener("visibilitychange",()=>{
     if(!document.hidden){
+      applyHeaderLogoStage();
       updateSystem();
       const id=tabPluginIds[activeIndex];
       if(id&&!logoMode)fetchPlugin(id,true);
@@ -1526,6 +1580,7 @@
   });
 
   setLayoutClass();
+  applyHeaderLogoStage();
   const restore=rememberedPage();
   if(restore==="admin"&&healthPage&&healthTab){
     showHealth();
