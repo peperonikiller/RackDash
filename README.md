@@ -657,16 +657,6 @@ For managed installation, place `rackdash-plugin.json` at the root of the plugin
 
 RackDash checks compatibility before installation and can install, update, uninstall, and roll back managed third-party plugins.
 
-### Official RackDash Plugins
-
-First-party plugins use:
-
-```python
-PLUGIN_OFFICIAL = True
-PLUGIN_SOURCE_PATH = "plugins/my_plugin.py"
-PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
-```
-
 Third-party authors should **not** set `PLUGIN_OFFICIAL = True`.
 
 ## Admin / Developer Tools
