@@ -15,7 +15,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "supercars"
 PLUGIN_NAME = "V8 Supercars"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/supercars.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -137,7 +137,7 @@ def _fetch(url):
     response = requests.get(
         url,
         timeout=8,
-        headers={"User-Agent": "RackDash-\1/3.0.0"},
+        headers={"User-Agent": "RackDash-Supercars/3.0.1"},
     )
     response.raise_for_status()
     return response.text
@@ -302,7 +302,7 @@ def _headlines():
         response = requests.get(
             SUPERCARS_NEWS_RSS,
             timeout=7,
-            headers={"User-Agent": "RackDash-\1/3.0.0"},
+            headers={"User-Agent": "RackDash-Supercars/3.0.1"},
         )
         response.raise_for_status()
         root = ET.fromstring(response.content)
@@ -389,7 +389,7 @@ def _event_weather(event):
                 "end_date": event["start"],
             },
             timeout=7,
-            headers={"User-Agent": "RackDash-\1/3.0.0"},
+            headers={"User-Agent": "RackDash-Supercars/3.0.1"},
         )
         response.raise_for_status()
         daily = response.json().get("daily") or []

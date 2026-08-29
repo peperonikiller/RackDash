@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -966,7 +966,7 @@ def _radar_frame(latitude, longitude, minutes_ago):
         },
         timeout=12,
         headers={
-            "User-Agent": "RackDash-\1/3.0.0",
+            "User-Agent": "RackDash-Weather/3.0.1",
             "Accept": "image/png,image/*;q=0.8,*/*;q=0.2",
         },
     )

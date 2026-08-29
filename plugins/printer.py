@@ -11,7 +11,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "printer"
 PLUGIN_NAME = "3D Printer"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/printer.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -52,6 +52,7 @@ CAMERA_URL = os.getenv(
 
 _metadata_cache = TTLCache(300)
 _machine_cache = TTLCache(300)
+_objects_cache = TTLCache(300)
 
 
 PLUGIN_HTML = r'''
@@ -416,26 +417,67 @@ def _get(path, params=None, timeout=5, stream=False):
         timeout=timeout,
         stream=stream,
         headers={
-            "User-Agent": "RackDash-\1/3.0.0",
+            "User-Agent": "RackDash-Printer/3.0.1",
         },
     )
 
 
-def _query_status():
-    query = (
-        "/printer/objects/query?"
-        "webhooks"
-        "&print_stats"
-        "&virtual_sdcard"
-        "&extruder=temperature,target,power"
-        "&heater_bed=temperature,target,power"
-        "&fan=speed,rpm"
-        "&toolhead=position"
-        "&gcode_move=speed_factor,extrude_factor"
-        "&display_status=progress,message"
+def _available_objects():
+    cached = _objects_cache.get()
+    if cached is not None:
+        return set(cached)
+
+    response = _get(
+        "/printer/objects/list",
+        timeout=5,
+    )
+    response.raise_for_status()
+
+    objects = set(
+        response.json()
+        .get("result", {})
+        .get("objects", [])
+        or []
     )
 
-    response = _get(query)
+    _objects_cache.set(sorted(objects))
+    return objects
+
+
+def _query_status():
+    available = _available_objects()
+
+    requested = [
+        ("webhooks", ""),
+        ("print_stats", ""),
+        ("virtual_sdcard", ""),
+        ("extruder", "temperature,target,power"),
+        ("heater_bed", "temperature,target,power"),
+        ("fan", "speed,rpm"),
+        ("toolhead", "position"),
+        ("gcode_move", "speed_factor,extrude_factor"),
+        ("display_status", "progress,message"),
+    ]
+
+    parts = []
+    for object_name, fields in requested:
+        if object_name not in available:
+            continue
+        parts.append(
+            object_name
+            if not fields
+            else f"{object_name}={fields}"
+        )
+
+    if not parts:
+        raise RuntimeError(
+            "Moonraker returned no queryable printer objects"
+        )
+
+    response = _get(
+        "/printer/objects/query?"
+        + "&".join(parts)
+    )
     response.raise_for_status()
 
     return (
@@ -909,7 +951,7 @@ def register_routes(app):
                 timeout=15,
                 headers={
                     "User-Agent": (
-                        "RackDash-\1/3.0.0"
+                        "RackDash-Printer/3.0.1"
                     )
                 },
             )

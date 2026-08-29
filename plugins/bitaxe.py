@@ -9,7 +9,7 @@ import requests
 
 PLUGIN_ID = "bitaxe"
 PLUGIN_NAME = "Bitaxe"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/bitaxe.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -593,7 +593,7 @@ def get_data():
         f"{BITAXE_URL}/api/system/info",
         timeout=5,
         headers={
-            "User-Agent": "RackDash-\1/3.0.0",
+            "User-Agent": "RackDash-Bitaxe/3.0.1",
         },
     )
     response.raise_for_status()

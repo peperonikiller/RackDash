@@ -10,7 +10,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "uptime_kuma"
 PLUGIN_NAME = "Uptime Kuma"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/uptime_kuma.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"

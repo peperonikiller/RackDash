@@ -13,7 +13,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "twitch"
 PLUGIN_NAME = "Twitch"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_MIN_RACKDASH = "2.0.0"
 PLUGIN_MAX_RACKDASH = ""
 PLUGIN_CAPABILITIES = ["network"]

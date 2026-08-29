@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "plex"
 PLUGIN_NAME = "Plex"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/plex.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"

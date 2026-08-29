@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/f1.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -58,7 +58,7 @@ def _get_json(path: str):
     response = requests.get(
         f"{F1_API}/{path.lstrip('/')}",
         timeout=7,
-        headers={"User-Agent": "RackDash-\1/3.0.0"},
+        headers={"User-Agent": "RackDash-F1/3.0.1"},
     )
     response.raise_for_status()
     return response.json()
@@ -198,7 +198,7 @@ def _headlines():
         response = requests.get(
             F1_NEWS_RSS,
             timeout=7,
-            headers={"User-Agent": "RackDash-\1/3.0.0"},
+            headers={"User-Agent": "RackDash-F1/3.0.1"},
         )
         response.raise_for_status()
         root = ET.fromstring(response.content)
@@ -301,7 +301,7 @@ def _race_day_weather(lat, lon, race_date):
                 "end_date": race_date,
             },
             timeout=7,
-            headers={"User-Agent": "RackDash-\1/3.0.0"},
+            headers={"User-Agent": "RackDash-F1/3.0.1"},
         )
         response.raise_for_status()
         payload = response.json()
@@ -443,7 +443,7 @@ def register_routes(app):
         safe = re.sub(r"[^a-z0-9_-]", "", track.lower())
         url = f"https://raw.githubusercontent.com/MasterPlay007/F1-Track-Layouts-SVG/main/{safe}.svg"
         try:
-            response = requests.get(url, timeout=5, headers={"User-Agent": "RackDash-\1/3.0.0"})
+            response = requests.get(url, timeout=5, headers={"User-Agent": "RackDash-F1/3.0.1"})
             response.raise_for_status()
             return Response(response.content, content_type="image/svg+xml")
         except Exception:
