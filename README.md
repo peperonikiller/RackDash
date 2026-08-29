@@ -30,6 +30,7 @@
 - **Themes and display tuning** — Dark, OLED Black, Blue Steel, UI scaling, overscan/safe area, burn-in protection, and idle dimming.
 - **Server-side secrets** — passwords, tokens, and API keys stay in `config.env` and are masked in Admin.
 - **No frontend framework required** — RackDash uses Python, Flask, HTML, CSS, and plain JavaScript.
+- **Currently 1 custom faceplate** — for use with the 10" GeekPi SBC rack https://www.printables.com/model/1827553-rackdash-faceplate
 
 ## Included Plugins
 
