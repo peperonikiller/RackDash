@@ -1,51 +1,147 @@
-# RackDash
+<p align="center">
+  <img src="rackdash_logo.png" alt="RackDash" width="520">
+</p>
 
-RackDash is a lightweight, plugin-driven dashboard for **rackmount LCDs,
-touchscreen status panels, Raspberry Pis, homelabs, and unusual display
-resolutions**.
+<h1 align="center">RackDash 3</h1>
 
-It began as a 1280×400 Pi-hole screen and evolved into a general dashboard
-where **every top-level Python file placed in `plugins/` becomes a tab**.
+<p align="center">
+  A lightweight, plugin-driven dashboard built for rackmount displays, touchscreens, Raspberry Pis, homelabs, and unusual screen sizes.
+</p>
 
-## Built-in plugins
+<p align="center">
+  <strong>Responsive.</strong> <strong>Touch-friendly.</strong> <strong>Plugin-first.</strong> <strong>Self-hosted.</strong>
+</p>
 
-- Pi-hole
-- Plex, Recently Added, and optional TMDB upcoming movies
-- Weather
-- Formula 1
-- Klipper / Moonraker 3D printer
-- Bitaxe / AxeOS
-
-Spotify was intentionally removed. RackDash favors unattended integrations
-that do not require frequent interactive reauthorization.
+---
 
 ## Features
 
-- Drop-in Python plugin system.
-- Touchscreen support.
-  - Swipe vertically to scroll plugin content.
-  - Swipe horizontally across a page to change tabs.
-  - Swipe the tab bar itself horizontally when the tabs do not fit.
-- Responsive layouts for:
-  - ultra-wide rack displays
-  - standard widescreen monitors
-  - tablets
-  - portrait displays
-- Per-plugin refresh intervals.
-- Plugin failures are isolated from the rest of the dashboard.
-- Secrets remain server-side in `config.env`.
-- Auto-rotation toggle in the footer, persisted in the kiosk browser.
-- Manual-only **Plugins / Health** tab for plugin status and GitHub update checks.
-- No frontend framework and no Node.js runtime required.
+- **Plugin-driven dashboard** — each top-level Python plugin becomes its own dashboard tab.
+- **Responsive layouts** — designed for ultra-wide rack displays, normal monitors, tablets, portrait screens, and odd resolutions.
+- **Touchscreen controls** — swipe between tabs, scroll plugin pages, and use larger touch targets when needed.
+- **Auto rotation** — rotate through enabled dashboards automatically with per-plugin timing controls.
+- **Fullscreen RackDash mode** — tap/click the RackDash logo for an animated fullscreen RackDash display; tap it again to return.
+- **Admin dashboard** — configure plugins, display behavior, updates, hardware, backups, security, and diagnostics from the browser.
+- **Plugin isolation** — a broken plugin is quarantined instead of taking down RackDash.
+- **Live plugin health** — latency, last poll, last success, failure count, sanitized errors, and test controls.
+- **Automatic update checks** — optionally check RackDash and supported plugins for updates every 24 hours.
+- **Remote kiosk recovery** — clients that lose RackDash during an update automatically perform a fresh reload after reconnecting.
+- **I2C OLED support** — system information, plugin-provided pages, and static artwork on supported OLED displays.
+- **Themes and display tuning** — Dark, OLED Black, Blue Steel, UI scaling, overscan/safe area, burn-in protection, and idle dimming.
+- **Server-side secrets** — passwords, tokens, and API keys stay in `config.env` and are masked in Admin.
+- **No frontend framework required** — RackDash uses Python, Flask, HTML, CSS, and plain JavaScript.
 
-## Quick start
+## Included Plugins
+
+| Plugin | Highlights |
+| --- | --- |
+| **Pi-hole** | DNS activity, blocked queries, clients, domains, query types, upstreams, trends |
+| **Plex** | Now Playing, Recently Played, Recently Added, On Deck, server statistics |
+| **Weather** | Current conditions, animated weather scene, hourly/7-day forecast, animated NOAA radar |
+| **Formula 1** | Next race, sessions, weather, top 10 drivers, constructors, results, headlines |
+| **V8 Supercars** | Next event, weather, top 10 drivers/teams, recent results, headlines |
+| **3D Printer** | Klipper/Moonraker status, temperatures, print progress, G-code preview, optional camera stream |
+| **Bitaxe** | Hashrate, power, efficiency, thermal data, pool/share statistics, system health |
+| **Twitch** | Multi-channel live status, category, viewers, title, uptime, recent broadcast information |
+| **ServerSpy** | Game-server status, players, maps, latency, server metadata |
+| **Uptime Kuma** | Monitor status, response time, groups, rolling uptime, problem-only filtering |
+
+---
+
+## Preview
+
+RackDash is designed for wide rackmount screens first, while still adapting cleanly to standard monitors, tablets, portrait displays, and unusual resolutions.
+
+### Fullscreen RackDash Mode
+
+Tap or click the **RACKDASH** wordmark in the upper-left corner to turn the display into an animated fullscreen RackDash screen. Tap the fullscreen logo to resume the dashboard.
+
+<p align="center">
+  <img src="docs/screenshots/logo-mode.png" alt="RackDash 3 fullscreen animated logo mode" width="100%">
+</p>
+
+### Media Dashboard
+
+Plex shows current or recently played media, recently added titles, server information, active streams, and playback details in a layout designed to make good use of wide displays.
+
+<p align="center">
+  <img src="docs/screenshots/plex.png" alt="RackDash Plex dashboard" width="100%">
+</p>
+
+### Motorsport Dashboard
+
+The Formula 1 plugin combines the next event, animated circuit view, race-weekend schedule, weather, driver standings, and constructor standings on one screen.
+
+<p align="center">
+  <img src="docs/screenshots/f1.png" alt="RackDash Formula 1 dashboard" width="100%">
+</p>
+
+### Administration
+
+RackDash includes a browser-based control center for plugin configuration, display behavior, health, updates, backups, security, diagnostics, and development tools.
+
+<p align="center">
+  <img src="docs/screenshots/admin.png" alt="RackDash Administration dashboard" width="100%">
+</p>
+
+---
+
+## Installation
+
+### Repository layout
+
+Keep the README and preview images in these locations:
+
+```text
+RackDash/
+├── README.md
+├── rackdash_logo.png
+└── docs/
+    └── screenshots/
+        ├── logo-mode.png
+        ├── plex.png
+        ├── f1.png
+        └── admin.png
+```
+
+The image paths in this README are **relative paths**, so GitHub renders them automatically as long as the files are committed in those exact locations.
+
+
+### 1. Install the required system packages
+
+On Debian / Raspberry Pi OS:
 
 ```bash
-sudo apt install python3-venv python3-pip
-git clone <your-repository-url>
+sudo apt update
+sudo apt install -y git python3-venv python3-pip
+```
+
+### 2. Download RackDash
+
+```bash
+git clone https://github.com/peperonikiller/RackDash.git
 cd RackDash
+```
+
+### 3. Install RackDash
+
+```bash
 ./install.sh
+```
+
+The installer creates the Python virtual environment, installs dependencies, and creates `config.env` when needed.
+
+### 4. Configure RackDash
+
+```bash
 nano config.env
+```
+
+You can also configure most settings later from **Admin** in the browser.
+
+### 5. Start RackDash
+
+```bash
 ./venv/bin/python app.py
 ```
 
@@ -55,32 +151,157 @@ Open:
 http://127.0.0.1:8080
 ```
 
-Optional systemd service:
+If you want to access RackDash from another device on your LAN, set:
+
+```env
+RACKDASH_HOST=0.0.0.0
+```
+
+Then open RackDash using the host machine's IP address.
+
+### Run RackDash as a service
 
 ```bash
 ./scripts/install-systemd.sh
 ```
 
-Kiosk example:
+RackDash can then restart automatically after updates or failures.
+
+### Chromium kiosk mode
+
+A dedicated RackDash display can use:
 
 ```bash
-chromium --kiosk --no-first-run --noerrdialogs \
-  --disable-session-crashed-bubble http://127.0.0.1:8080
+chromium \
+  --user-data-dir="$HOME/.config/rackdash-chromium" \
+  --kiosk \
+  --noerrdialogs \
+  --disable-session-crashed-bubble \
+  --disable-translate \
+  --overscroll-history-navigation=0 \
+  --disable-pinch \
+  http://127.0.0.1:8080
 ```
 
-## Plugin system
+---
 
-A plugin is a Python file directly inside `plugins/`.
+## Using RackDash
 
-Minimal example:
+The dashboard tabs across the top represent enabled plugins. On touch displays, swipe horizontally to move between tabs and vertically to scroll the current page.
+
+The **AUTO ROTATE** switch controls automatic tab rotation. RackDash remembers this choice in the browser profile.
+
+The **Admin** tab is always manual-only and never enters automatic rotation. Admin provides access to:
+
+- plugin settings, enable/disable controls, display order, refresh rate, tab visibility, and rotation timing
+- RackDash and plugin update checks
+- official plugin updates, rollback, install, and uninstall controls
+- core display settings and themes
+- I2C/OLED configuration
+- backup and restore
+- logs and diagnostics
+- Admin authentication and security settings
+- quarantined plugin information
+- Developer Mode and plugin debugging tools
+
+Tap or click the **RACKDASH** logo in the upper-left corner to enter the fullscreen animated RackDash display. Tap the fullscreen logo to resume.
+
+---
+
+## I2C / OLED Displays
+
+RackDash can drive small auxiliary OLED displays alongside the main dashboard.
+
+Supported presets include:
+
+- SH1106 / SSH1106
+- SH1107
+- SSD1306 128×64
+- SSD1306 128×32
+- SSD1309
+- SSD1325
+- SSD1327
+
+Display modes include **System Only**, **System + Plugins**, and **Static Icon**.
+
+On a Raspberry Pi, a common SH1106/SSD1306 I2C connection is:
+
+| OLED | Raspberry Pi |
+| --- | --- |
+| VCC | 3.3 V |
+| GND | GND |
+| SDA | GPIO2 / SDA1 |
+| SCL | GPIO3 / SCL1 |
+
+Enable I2C with:
+
+```bash
+sudo raspi-config
+sudo apt install -y i2c-tools
+sudo usermod -aG i2c "$USER"
+sudo reboot
+```
+
+Then verify the display:
+
+```bash
+i2cdetect -y 1
+```
+
+---
+
+## Updates, Backups, and Recovery
+
+RackDash supports manual update checks and an optional **Automatically check for updates** setting. When enabled, RackDash checks the core and supported plugins every 24 hours. Automatic checks only notify you; they do not install anything.
+
+Official plugins can be updated independently from the RackDash application. RackDash validates the plugin before replacing it and keeps rollback copies.
+
+Core updates create a backup before replacing RackDash files. Persistent configuration, data, the Python environment, and third-party plugins are preserved by the updater.
+
+If a kiosk browser loses connection while RackDash is restarting, it displays a connection-lost screen. When RackDash becomes reachable again, the client performs a cache-busted full reload so updated plugin HTML, CSS, and JavaScript are loaded immediately.
+
+---
+
+## Security
+
+RackDash listens on `127.0.0.1` by default. Only use `RACKDASH_HOST=0.0.0.0` when LAN access is intentional.
+
+Admin write actions can be protected by a password/PIN. RackDash stores a server-side password hash and does not save the Admin password in `config.env`.
+
+Configuration fields declared as `password`, `secret`, or `token` are masked in the browser. Keep `config.env` private and never commit it to source control.
+
+---
+
+# Plugin Development
+
+RackDash plugins are intentionally simple: one Python file can contain the backend integration, HTML, CSS, JavaScript, settings schema, custom routes, and OLED output.
+
+A plugin is discovered automatically when a top-level `.py` file is placed inside `plugins/`. Files beginning with `_` are treated as helper modules and are not loaded as plugins.
+
+For a ready-to-edit starting point, use:
+
+```text
+plugins/examples/rackdash_plugin_template.py
+```
+
+The full reference also lives in [`PLUGIN_GUIDE.md`](PLUGIN_GUIDE.md).
+
+## Minimal Plugin
 
 ```python
 PLUGIN_ID = "hello"
 PLUGIN_NAME = "Hello"
-PLUGIN_HTML = "<h1 data-role='message'>Loading...</h1>"
+
+PLUGIN_HTML = """
+<div class="surface">
+  <h1 data-role="message">Loading...</h1>
+</div>
+"""
 
 def get_data():
-    return {"message": "Hello from RackDash"}
+    return {
+        "message": "Hello from RackDash"
+    }
 
 PLUGIN_JS = """
 window.RackDashPlugins.hello = {
@@ -91,151 +312,68 @@ window.RackDashPlugins.hello = {
 """
 ```
 
-Restart RackDash and the **Hello** tab is discovered automatically.
+Restart or reload RackDash and the plugin becomes a dashboard tab.
 
-See [`PLUGIN_GUIDE.md`](PLUGIN_GUIDE.md) and the heavily commented
-[`plugins/examples/sample_api_plugin.py`](plugins/examples/sample_api_plugin.py).
+## Plugin Contract
 
-## Responsive design
+### Required
 
-RackDash no longer assumes 1280×400. The browser automatically classifies the
-current display as ultrawide, wide, standard, or portrait and adjusts shared
-spacing/header behavior.
+| Item | Description |
+| --- | --- |
+| `PLUGIN_ID` | Unique plugin ID matching `^[a-z0-9][a-z0-9_-]*$` |
+| `PLUGIN_NAME` | Human-readable plugin/tab name |
+| `PLUGIN_HTML` | HTML fragment inserted into the plugin page |
+| `get_data()` | Server-side function that **must return a Python `dict`** |
 
-Plugins should use the shared responsive classes instead of fixed dimensions.
+### Optional Metadata
 
-Each plugin gets a native vertical scroll area automatically. This is especially
-useful on short rack screens and touchscreens.
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `PLUGIN_VERSION` | `0.0.0` | Plugin version |
+| `PLUGIN_ORDER` | `100` | Default tab order |
+| `PLUGIN_REFRESH_SECONDS` | `10` | Default backend refresh interval; minimum 1 second |
+| `PLUGIN_ACCENT` | `#dce8ee` | Plugin accent color |
+| `PLUGIN_ICON` | empty | Small tab subtitle/icon text |
+| `PLUGIN_PUBLIC_ERROR` | `<name> unavailable` | Safe browser-facing error |
+| `PLUGIN_CSS` | empty | Plugin-specific CSS |
+| `PLUGIN_JS` | empty | Browser renderer/callbacks |
+| `PLUGIN_GITHUB` | empty | GitHub repository used for update checking |
+| `PLUGIN_MIN_RACKDASH` | empty | Minimum compatible RackDash version |
+| `PLUGIN_MAX_RACKDASH` | empty | Maximum compatible RackDash version |
+| `PLUGIN_CAPABILITIES` | `[]` | Declared capabilities |
+| `PLUGIN_OFFICIAL` | `False` | Marks first-party RackDash plugins |
+| `PLUGIN_SOURCE_PATH` | empty | Source path for official plugin updates |
+| `PLUGIN_CONFIG` | `[]` | Declarative settings shown in Admin |
 
-## Auto rotation
+Treat `PLUGIN_ORDER` and `PLUGIN_REFRESH_SECONDS` as defaults. Users can override presentation and refresh settings from Admin without editing your source file.
 
-The footer includes an **AUTO ROTATE** switch. It is saved using local browser
-storage, so turning rotation off remains off across reloads in the same kiosk
-profile.
+## Server-Side Data
 
-The interval itself is configured with:
-
-```text
-ROTATE_SECONDS=12
-```
-
-## Security
-
-RackDash binds to `127.0.0.1` by default.
-
-Set:
-
-```text
-RACKDASH_HOST=0.0.0.0
-```
-
-only when you intentionally want the dashboard accessible to other LAN devices.
-
-Never commit `config.env`.
-
-## License
-
-MIT
-
-
-## Plugins / Health tab
-
-RackDash always adds a **Plugins** tab on the far right.
-
-This tab is intentionally excluded from auto rotation. It opens only when the
-user clicks or taps it.
-
-The Health page shows:
-
-- RackDash version
-- loaded plugin count
-- installed plugin versions
-- configured GitHub repository for each plugin
-- one-click update checks
-- a **Check All Updates** action
-
-Plugins can opt into update checks with:
+RackDash calls:
 
 ```python
-PLUGIN_VERSION = "1.2.0"
-PLUGIN_GITHUB = "https://github.com/owner/repository"
+def get_data():
+    return {
+        "temperature": 72,
+        "status": "online"
+    }
 ```
 
-RackDash checks GitHub's latest release first and falls back to the repository's
-latest tag. Results are cached for 15 minutes.
+Runtime timing and health tracking are handled automatically. RackDash records:
 
-The built-in plugins ship with a placeholder RackDash repository URL. Before
-publishing your fork, replace:
-
-```text
-https://github.com/YOUR_GITHUB_USERNAME/RackDash
-```
-
-with your actual repository URL.
-
-
-## Plugin configuration API
-
-Plugins may declare their own configuration fields:
-
-```python
-PLUGIN_CONFIG = [
-    {"key":"MY_PLUGIN_URL","label":"Server URL","type":"text","default":"http://127.0.0.1:9000"},
-    {"key":"MY_PLUGIN_TOKEN","label":"API Token","type":"token","default":""},
-    {"key":"MY_PLUGIN_MODE","label":"Mode","type":"select","default":"compact",
-     "options":[{"value":"compact","label":"Compact"},{"value":"full","label":"Full"}]}
-]
-```
-
-RackDash statically discovers `PLUGIN_CONFIG` before importing plugins and
-automatically adds missing keys to `config.env`. Plugins then read values with
-ordinary `os.getenv()`.
-
-The manual **Plugins / Health** page automatically gives every configurable
-plugin its own **SETTINGS** window. RackDash core settings are available from
-**CORE SETTINGS**.
-
-The Health page also supports enabling/disabling plugins and GitHub
-manifest-based third-party installs, updates, and uninstalls. Third-party
-repositories must provide `rackdash-plugin.json`. Newly installed or updated
-Python plugins require a RackDash restart before execution.
-
-
-## Health restart and connection recovery
-
-Plugins / Health includes **Restart RackDash**. RackDash replies to the browser,
-then exits with a non-zero code. The bundled systemd service uses
-`Restart=on-failure`, so systemd immediately brings the server back without
-requiring passwordless sudo from the web app.
-
-If the browser loses the RackDash backend, it shows a connection-lost overlay
-and checks `/api/system` every 30 seconds. When the server is reachable again,
-the page reloads automatically.
-
-## Formula 1 standings
-
-The F1 plugin now includes the top five Driver Championship standings and the
-full Constructor Championship table, up to all 11 teams.
-
-
-## Live plugin diagnostics
-
-Plugins / Health now records live runtime diagnostics for every plugin:
-
-- enabled / disabled
-- configured / missing required settings
-- healthy / error / waiting
-- last poll time
+- last poll attempt
 - last successful poll
-- last API response time
+- response time
 - consecutive failures
-- last sanitized server-side error
+- sanitized last error
 
-The Health page refreshes these diagnostics every 10 seconds while it is open.
-Each plugin also has a **TEST** button that immediately executes its `get_data()`
-call and updates the diagnostics.
+Raise exceptions normally when a request fails. RackDash logs the traceback server-side and exposes only `PLUGIN_PUBLIC_ERROR` to the dashboard.
 
-Plugin authors can mark configuration fields as mandatory:
+Keep secrets on the Python side. Do not return passwords, tokens, API keys, or credentials from `get_data()`.
+
+## Declarative Plugin Settings
+
+Plugins can define settings without building a settings UI:
 
 ```python
 PLUGIN_CONFIG = [
@@ -243,62 +381,198 @@ PLUGIN_CONFIG = [
         "key": "MY_SERVICE_URL",
         "label": "Service URL",
         "type": "text",
-        "default": "",
-        "required": True
+        "default": "http://127.0.0.1:9000",
+        "required": True,
+        "help": "Address of the service."
+    },
+    {
+        "key": "MY_SERVICE_TOKEN",
+        "label": "API Token",
+        "type": "secret",
+        "default": ""
     }
 ]
 ```
 
-RackDash reports the plugin as **Needs setup** until all required fields have
-values.
+RackDash adds missing defaults to `config.env`, generates the Admin settings dialog, validates submitted values, and masks sensitive values.
 
+Supported field types:
 
-## I2C OLED displays
-
-Admin includes an I2C Display section for small auxiliary OLEDs. Current
-controller presets include SH1106/SSH1106, SH1107, SSD1306 (128×64 and 128×32),
-SSD1309, SSD1325, and SSD1327.
-
-Modes:
-
-- **System Only** — IP, CPU, RAM, CPU temperature, root-disk usage, and uptime.
-- **System + Plugins** — rotates the system page with plugin-provided I2C frames.
-- **Static Icon** — uploads an image no larger than the selected display,
-  centers it, dithers it to monochrome, and displays it continuously.
-
-### Raspberry Pi wiring for SH1106 / SSH1106 I2C OLED
-
-Use 3.3 V unless the exact module documentation explicitly requires otherwise:
-
-| OLED | Raspberry Pi 5 |
+| Type | Behavior |
 | --- | --- |
-| VCC | 3.3 V physical pin 1 |
-| GND | Ground physical pin 6 |
-| SDA | GPIO2 / SDA1 physical pin 3 |
-| SCL | GPIO3 / SCL1 physical pin 5 |
+| `text` | Standard text input |
+| `number` | Numeric value |
+| `checkbox` | Boolean-style toggle |
+| `select` | Selection using `options` |
+| `password` | Masked sensitive input |
+| `secret` | Masked sensitive input |
+| `token` | Masked sensitive input |
 
-Enable I2C and verify the module before enabling it in RackDash:
+Available field properties include:
 
-```bash
-sudo raspi-config
-# Interface Options -> I2C -> Enable
+| Property | Purpose |
+| --- | --- |
+| `key` | Environment/config key |
+| `label` | Display label |
+| `type` | Input type |
+| `default` | Default value |
+| `required` | Marks the field required for plugin health |
+| `help` | Help text displayed in Admin |
+| `options` | Options for a `select` field |
+| `min` / `max` | Numeric validation |
+| `step` | Numeric UI step |
+| `pattern` | Regular-expression validation |
+| `validation_message` | Custom validation error |
 
-sudo apt install i2c-tools
-sudo usermod -aG i2c "$USER"
-sudo reboot
+Read configured values normally:
+
+```python
+import os
+
+URL = os.getenv("MY_SERVICE_URL", "")
+TOKEN = os.getenv("MY_SERVICE_TOKEN", "")
 ```
 
-After reboot:
+`PLUGIN_CONFIG` should remain statically/literally declared so RackDash can discover settings before importing the plugin.
 
-```bash
-i2cdetect -y 1
+## Browser API
+
+Register the frontend renderer using the same ID as `PLUGIN_ID`:
+
+```javascript
+window.RackDashPlugins.hello = {
+  render(data, root) {
+    // Called when fresh get_data() output arrives.
+  },
+
+  onShow(root) {
+    // Called whenever the plugin tab becomes visible.
+  },
+
+  onResize(root) {
+    // Called when the viewport changes size.
+  }
+};
 ```
 
-Most SH1106 boards appear at `0x3c`; some use `0x3d`.
+Always query elements inside the supplied `root` instead of using document-wide IDs.
 
-### Plugin I2C output
+### RackDash JavaScript Helpers
 
-In **System + Plugins** mode, a plugin can participate by defining:
+The global `window.RackDash` object provides:
+
+```javascript
+RackDash.formatNumber(value)
+RackDash.escape(value)
+RackDash.duration(seconds)
+RackDash.uptime(seconds)
+RackDash.compact(value)
+RackDash.progress(percent)
+RackDash.drawLine(canvas, values, color)
+```
+
+Use `RackDash.escape()` whenever inserting external text into generated HTML.
+
+`RackDash.drawLine()` automatically handles device pixel ratio and resizes the canvas to its displayed dimensions.
+
+## Shared UI Classes
+
+Plugins can use RackDash's built-in responsive design language:
+
+```text
+.surface
+.plugin-head
+.eyebrow
+.metric-grid
+.metric
+.chart-card
+.chip-row
+.status-chip
+.muted
+.split
+.progress-track
+.empty-state
+.section-label
+```
+
+Useful shared CSS variables include:
+
+```css
+var(--gap)
+var(--pad)
+var(--surface)
+var(--border)
+var(--muted)
+var(--accent)
+```
+
+Scope plugin-specific CSS beneath:
+
+```css
+.plugin-<PLUGIN_ID> { ... }
+```
+
+RackDash already creates the plugin's vertical scroll area. Do not add another full-page scroll container.
+
+Use fluid CSS where possible:
+
+```css
+grid-template-columns:repeat(3,minmax(0,1fr));
+font-size:clamp(.8rem,2vw,1.5rem);
+gap:var(--gap);
+```
+
+## Custom Flask Routes
+
+Plugins can register their own endpoints:
+
+```python
+def register_routes(app):
+    @app.get("/api/plugin/hello/image")
+    def hello_image():
+        return app.response_class(
+            image_bytes,
+            content_type="image/png"
+        )
+```
+
+Always prefix custom endpoints with:
+
+```text
+/api/plugin/<PLUGIN_ID>/
+```
+
+Declare:
+
+```python
+PLUGIN_CAPABILITIES = ["custom_routes"]
+```
+
+Plugins with custom Flask routes require a full RackDash restart when routes are installed or changed. RackDash will avoid unsafe hot reloads for these plugins.
+
+## Capabilities
+
+Declare the functionality your plugin uses:
+
+```python
+PLUGIN_CAPABILITIES = [
+    "network",
+    "i2c",
+    "custom_routes"
+]
+```
+
+Current standard capability names are:
+
+- `network`
+- `i2c`
+- `custom_routes`
+
+Capabilities are informational and are shown to users before installation.
+
+## I2C / OLED Plugin Output
+
+When **System + Plugins** is enabled, RackDash looks for:
 
 ```python
 def get_i2c_data():
@@ -311,365 +585,149 @@ def get_i2c_data():
     }
 ```
 
-A plugin may also return an icon:
+You can also return an icon:
 
 ```python
 def get_i2c_data():
     return {
         "title": "My Plugin",
         "lines": ["3 active jobs"],
-        "icon": "my_plugin_icon.png"
+        "icon": "plugin_icon.png"
     }
 ```
 
-The icon path can be absolute or relative to the plugin's Python file. If no
-text lines are provided, RackDash centers the icon on the display. Images are
-converted to a display-compatible monochrome frame automatically.
-
-
-## RackDash update checking
-
-The manual-only **Admin** tab includes **Check RackDash Update**.
-
-Official repository:
-
-```text
-https://github.com/peperonikiller/RackDash
-```
-
-RackDash compares its current version with the latest GitHub release and falls
-back to the newest tag if no releases exist. The check is manual; opening Admin
-does not automatically query GitHub.
-
-Admin is permanently excluded from automatic dashboard rotation.
-
-
-# RackDash 2.0 platform release
-
-RackDash 2.0 focuses on making the core application a stable platform before
-expanding the bundled plugin catalog.
-
-## Admin authentication
-
-Dashboard viewing remains available on the rack screen while write operations
-can be protected with an Admin password/PIN. Protected actions include config
-changes, restart, RackDash update, plugin install/update/uninstall/rollback,
-backup/restore, plugin display settings, and I2C controls.
-
-Authentication uses a server-side scrypt password hash. The password itself is
-never written to `config.env`.
-
-## Save + Restart
-
-Core and plugin settings dialogs include both **Save** and **Save + Restart**.
-The latter writes the configuration and asks the systemd-managed RackDash
-process to restart immediately.
-
-## Backup and restore
-
-Admin can download a RackDash backup containing persistent configuration,
-plugin state, installer metadata, Admin authentication state, I2C artwork, and
-top-level plugin files. A backup ZIP can be restored from the Admin page.
-
-## Plugin rollback
-
-Installer-managed plugins are backed up before update, uninstall, and rollback.
-Recent backups are exposed in Admin and can be restored with the Rollback
-control.
-
-## Plugin compatibility and capabilities
-
-Plugins may declare:
+Or an icon only:
 
 ```python
-PLUGIN_MIN_RACKDASH = "2.0.0"
-PLUGIN_MAX_RACKDASH = ""
-PLUGIN_CAPABILITIES = ["network", "i2c", "custom_routes"]
+def get_i2c_data():
+    return {
+        "icon": "plugin_icon.png"
+    }
 ```
 
-GitHub plugin manifests support equivalent fields:
+Relative icon paths are resolved from the plugin file's directory. RackDash handles image scaling and conversion for the selected OLED. Plugins should not open the I2C bus or create display threads themselves.
+
+## Shared Python Helpers
+
+Files beginning with `_` inside `plugins/` are available as helper modules without becoming dashboard tabs.
+
+RackDash ships with:
+
+```python
+from _shared import env, TTLCache
+```
+
+### `env()`
+
+```python
+URL = env("MY_SERVICE_URL", "http://127.0.0.1")
+```
+
+Convenience wrapper around `os.getenv()`.
+
+### `TTLCache`
+
+```python
+cache = TTLCache(30)
+
+cached = cache.get()
+if cached is not None:
+    return cached
+
+data = {"value": 42}
+return cache.set(data)
+```
+
+Available methods:
+
+```python
+cache.fresh()
+cache.get()
+cache.set(value)
+cache.clear()
+```
+
+The cache uses a monotonic clock so system clock changes do not invalidate timing.
+
+## Update Support
+
+### Third-Party Plugins
+
+Provide:
+
+```python
+PLUGIN_VERSION = "1.2.0"
+PLUGIN_GITHUB = "https://github.com/yourname/my-rackdash-plugin"
+```
+
+For managed installation, place `rackdash-plugin.json` at the root of the plugin repository:
 
 ```json
 {
   "id": "my_plugin",
   "name": "My Plugin",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "entry": "my_plugin.py",
-  "min_rackdash": "2.0.0",
+  "min_rackdash": "3.0.0",
   "max_rackdash": "",
   "capabilities": ["network"]
 }
 ```
 
-RackDash previews capabilities before installation and blocks versions that are
-incompatible with the running RackDash version.
+RackDash checks compatibility before installation and can install, update, uninstall, and roll back managed third-party plugins.
 
-## Per-plugin presentation controls
+### Official RackDash Plugins
 
-Admin can override each plugin's:
-
-- enabled state
-- whether it has a visible tab
-- whether it participates in auto rotation
-- tab order
-- backend refresh interval
-- amount of time it remains on screen during auto rotation
-
-The Admin tab itself is permanently manual-only and never participates in
-automatic rotation.
-
-## RackDash self-update
-
-Admin can update RackDash from the latest GitHub Release. RackDash expects the
-release to contain a ZIP asset with `RackDash` in the filename. Before replacing
-core files it creates a persistent backup. `config.env`, `data/`, the virtual
-environment, Git metadata, and third-party plugin files are preserved.
-
-After applying the release RackDash exits and the provided systemd service
-starts it again.
-
-## Logs and diagnostics
-
-Admin exposes a rotating RackDash log plus hardware/runtime diagnostics:
-
-- Python version
-- OS/platform and architecture
-- hostname
-- systemd service state
-- Chromium process detection
-- I2C bus scan
-- available disk space
-- browser viewport
-- device pixel ratio
-- browser user agent
-
-The log viewer can optionally filter by plugin/name.
-
-## Display and accessibility options
-
-Core Settings include:
-
-- Dark, OLED Black, and Blue Steel themes
-- global UI scale
-- safe-area / overscan padding
-- larger touchscreen controls
-- burn-in pixel shifting
-- idle dimming
-- Developer Mode
-
-Left and Right arrow keys navigate normal dashboard tabs. Touch swiping remains
-supported.
-
-## Developer tools
-
-Admin provides raw plugin metadata/data inspection and a single-plugin reload
-button. Reloading refreshes the Python plugin module and `get_data()` logic
-without restarting RackDash. Changes to custom Flask routes still require a
-full RackDash restart.
-
-## Secret handling
-
-Fields declared as `password`, `secret`, or `token` are masked in the browser.
-Submitting the unchanged `********` placeholder preserves the existing value.
-
-
-## Twitch plugin
-
-The built-in Twitch plugin watches one or more channels configured as a
-comma-separated list. When one or more channels are live, it shows the channel,
-current category/game, viewer count, stream title, and uptime. If nobody is
-live, it shows all configured offline channels and when their newest archived
-broadcast was created.
-
-```env
-TWITCH_CHANNELS=channelone,channeltwo
-TWITCH_CLIENT_ID=
-TWITCH_CLIENT_SECRET=
-```
-
-RackDash uses Twitch's server-to-server client-credentials OAuth flow. The app
-access token is cached only in memory. The client secret remains in
-`config.env` and is masked in RackDash Admin.
-
-Twitch does not expose a direct public last-streamed timestamp for an offline
-channel. RackDash uses the newest archived VOD as the official API proxy. If a
-broadcaster has VOD archiving disabled, Last Broadcast may be unavailable.
-
-
-## Official vs third-party plugin updates
-
-RackDash 2.2 separates first-party and third-party plugin update channels.
-
-Official plugins live in the main RackDash repository under `plugins/` and use:
+First-party plugins use:
 
 ```python
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/my_plugin.py"
+PLUGIN_GITHUB = "https://github.com/peperonikiller/RackDash"
 ```
 
-For an official plugin, Admin fetches that exact file from the `main` branch,
-parses its `PLUGIN_VERSION`, and compares it with the installed plugin. This
-means an official plugin can be updated independently from the RackDash
-application release/tag.
+Third-party authors should **not** set `PLUGIN_OFFICIAL = True`.
 
-When **Update Official** is pressed, RackDash downloads only that source file,
-validates `PLUGIN_ID`, `PLUGIN_OFFICIAL`, `PLUGIN_SOURCE_PATH`, and Python
-syntax, keeps a rollback copy under `data/plugin_backups/`, replaces the plugin,
-and asks for a RackDash restart.
+## Admin / Developer Tools
 
-Third-party plugins continue to use their own GitHub repository and
-`rackdash-plugin.json` manifest through the existing managed-plugin installer.
+RackDash Developer Mode provides plugin authors with:
 
-Official plugin source repository:
+- live runtime health
+- `get_data()` test execution
+- sanitized error reporting
+- raw plugin metadata inspection
+- raw plugin data inspection
+- single-plugin module reload
+- logs and diagnostics
+- per-plugin configuration inspection
+- compatibility/capability information
+- quarantine reporting when plugin import or validation fails
 
-```text
-https://github.com/peperonikiller/RackDash/tree/main/plugins
+A normal module reload is suitable for `get_data()`, HTML, CSS, and JavaScript changes. Plugins that add or change Flask routes require a full RackDash restart.
+
+## Validation Checklist
+
+Before publishing a plugin:
+
+```bash
+python -m py_compile plugins/my_plugin.py
 ```
 
+Also verify:
 
-## v2.2.1 update-system fixes
+- `PLUGIN_ID` is unique and valid
+- `get_data()` always returns a `dict`
+- required settings use `"required": True`
+- secret values never appear in returned data or browser JavaScript
+- CSS is scoped to `.plugin-<PLUGIN_ID>`
+- custom routes begin with `/api/plugin/<PLUGIN_ID>/`
+- `PLUGIN_CAPABILITIES` matches plugin behavior
+- the plugin works at narrow and wide screen sizes
+- touch scrolling is not blocked
+- errors use a safe `PLUGIN_PUBLIC_ERROR`
+- `PLUGIN_VERSION` is updated before release
+- `rackdash-plugin.json` matches the plugin version for third-party releases
 
-Manual RackDash and plugin update checks now bypass the GitHub status cache so a
-release that was published moments ago is visible immediately.
+## License
 
-Version comparison now treats equivalent forms such as `2.0`, `v2.0`, and
-`v2.0.0` as the same version instead of incorrectly reporting the longer local
-form as "ahead."
-
-RackDash self-update prefers a RackDash ZIP attached to the GitHub Release. If
-there is no release asset, it now falls back to GitHub's automatic release
-`zipball_url`. This allows a normal GitHub Release with no attached assets to
-still be installed from Admin.
-
-
-## v2.3.0 daily update checks
-
-The **Check RackDash Update** button now lives inside the RackDash Update
-section instead of the Admin header.
-
-RackDash has two optional automatic checks:
-
-- **Daily RackDash Update Check**
-- **Daily Plugin Update Checks**
-
-When enabled, the RackDash service performs the corresponding check at most
-once every 24 hours. Enabling a check for the first time causes the service to
-perform its first check shortly afterward.
-
-Automatic checks only detect updates. They never install RackDash or plugin
-updates automatically.
-
-Update results are saved to `data/update_checks.json`, so the Admin page keeps
-showing the last result after a browser refresh, service restart, or Pi reboot.
-The Admin page also shows whether the last check was automatic or manual and
-when it occurred.
-
-**Check RackDash Update** and **Check All Updates** remain manual controls and
-always perform fresh GitHub checks.
-
-## Uptime Kuma Plugin
-
-The Uptime Kuma plugin provides a compact homelab/service-health view with
-status counts, response time, optional 24-hour uptime, grouping, filtering,
-problem-only mode, and I2C output.
-
-```env
-UPTIME_KUMA_URL=http://192.168.1.50:3001
-UPTIME_KUMA_STATUS_PAGE=homelab
-UPTIME_KUMA_API_KEY=
-UPTIME_KUMA_USERNAME=
-UPTIME_KUMA_PASSWORD=
-UPTIME_KUMA_FILTER=
-UPTIME_KUMA_SHOW_ONLY_PROBLEMS=false
-```
-
-### Recommended: Published Status Page
-
-Create a published Uptime Kuma Status Page containing the monitors you want
-RackDash to display. Enter the page slug in:
-
-```text
-Admin → Uptime Kuma → Settings → Status Page Slug
-```
-
-If your status page URL is:
-
-```text
-http://192.168.1.50:3001/status/homelab
-```
-
-use:
-
-```text
-homelab
-```
-
-Status Page mode requires no credentials and provides the richest display:
-monitor groups, recent heartbeat timestamps, response time, and rolling
-24-hour uptime.
-
-### Metrics mode
-
-If Status Page Slug is empty, RackDash reads Uptime Kuma's `/metrics`
-endpoint.
-
-Use an API key when authentication is enabled:
-
-```env
-UPTIME_KUMA_API_KEY=uk...
-```
-
-RackDash sends the API key as the HTTP Basic Auth password, matching Uptime
-Kuma's Prometheus API-key authentication.
-
-Username/password can also be configured as a fallback where your Uptime Kuma
-installation permits Basic Auth for `/metrics`.
-
-Metrics mode exposes current monitor status and response time. It does not
-provide the same 24-hour uptime and heartbeat history available through the
-published Status Page endpoints.
-
-
-
-## v2.4.1 I2C Admin Hotfix
-
-Fixed the I2C Display dropdown in Admin.
-
-The display controller list was already provided by the RackDash backend, and
-the frontend had a `loadI2C()` function capable of populating the dropdown, but
-that function was never called when the Admin page loaded. As a result, the
-Display selector appeared empty even though RackDash supported SH1106, SH1107,
-SSD1306, SSD1309, SSD1325, and SSD1327 presets.
-
-Admin now loads the I2C controller/size list whenever the Health/Admin page is
-loaded.
-
-
-## RackDash v3.0.0 — Core Reliability
-
-RackDash now isolates plugin startup failures. A malformed or incompatible
-plugin is quarantined instead of preventing the entire dashboard from starting.
-
-Reliability changes include:
-
-- plugin import, validation, and `register_routes()` failures are isolated;
-- failed plugin files are surfaced in Admin under **Quarantined Plugins**;
-- plugin modules are registered in `sys.modules` before execution, matching
-  normal Python import behavior and improving compatibility with decorators and
-  libraries such as `dataclasses`;
-- duplicate `PLUGIN_ID` values are rejected without stopping RackDash;
-- `get_data()` results are validated as dictionaries;
-- plugin presentation state recovers from malformed JSON instead of preventing
-  startup;
-- configuration and plugin-state writes are atomic;
-- installer plugin/source writes use temporary files and atomic replacement;
-- manual hot reload keeps the existing plugin active until replacement code
-  validates successfully;
-- plugins that define Flask routes automatically use a normal RackDash restart
-  rather than an unsafe partial hot reload;
-- plugin loader errors are written to the RackDash rotating log from startup.
-
-
-## RackDash 3
-
-RackDash 3 adds a performance and visual refresh across the dashboard and official plugins. **Fullscreen animated logo mode:** tap or click the RACKDASH wordmark in the upper-left corner; tap the fullscreen logo to resume the dashboard.
+MIT
