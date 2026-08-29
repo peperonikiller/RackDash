@@ -11,7 +11,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "printer"
 PLUGIN_NAME = "3D Printer"
-PLUGIN_VERSION = "3.0.1"
+PLUGIN_VERSION = "3.0.2"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/printer.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -39,6 +39,14 @@ PLUGIN_CONFIG = [
         "default": "",
         "help": "Optional MJPEG stream or snapshot URL. Mainsail/Crowsnest commonly uses /webcam/?action=stream. Relative URLs are resolved against the Moonraker host.",
     },
+    {
+        "key": "KLIPPER_CAMERA_ROTATE_180",
+        "label": "Rotate Camera 180°",
+        "type": "checkbox",
+        "default": "false",
+        "required": False,
+        "help": "Rotate the live camera stream 180 degrees for upside-down camera mounts.",
+    },
 ]
 
 KLIPPER_URL = os.getenv(
@@ -49,6 +57,11 @@ CAMERA_URL = os.getenv(
     "KLIPPER_CAMERA_URL",
     "",
 ).strip()
+
+CAMERA_ROTATE_180 = os.getenv(
+    "KLIPPER_CAMERA_ROTATE_180",
+    "false",
+).strip().lower() in ("1", "true", "yes", "on")
 
 _metadata_cache = TTLCache(300)
 _machine_cache = TTLCache(300)
@@ -246,8 +259,9 @@ PLUGIN_CSS = r'''
   background:#0b0f12;
   border:1px solid rgba(111,183,255,.11);
 }
-.plugin-printer .printer-camera-frame img{width:100%;height:100%;object-fit:contain;display:none}
+.plugin-printer .printer-camera-frame img{width:100%;height:100%;object-fit:contain;display:none;transform-origin:center center}
 .plugin-printer .printer-camera-frame.has-camera img{display:block}
+.plugin-printer .printer-camera-frame.rotate-180 img{transform:rotate(180deg)}
 .plugin-printer .printer-camera-empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:.25rem;color:var(--muted);padding:1rem}
 .plugin-printer .printer-camera-frame.has-camera .printer-camera-empty{display:none}
 .plugin-printer .printer-camera-empty strong{font-size:.7rem;color:#d2dde2}
@@ -384,6 +398,8 @@ window.RackDashPlugins.printer={
     const cameraFrame=root.querySelector('[data-role="camera-frame"]');
     const camera=root.querySelector('[data-role="camera"]');
     const cameraStatus=root.querySelector('[data-role="camera-status"]');
+
+    cameraFrame.classList.toggle("rotate-180",!!data.camera_rotate_180);
 
     if(data.camera_configured){
       camera.onload=()=>{
@@ -865,6 +881,7 @@ def get_data():
         "camera_configured": bool(
             _resolve_camera_url()
         ),
+        "camera_rotate_180": CAMERA_ROTATE_180,
     }
 
 
