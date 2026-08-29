@@ -88,25 +88,6 @@ RackDash includes a browser-based control center for plugin configuration, displ
 
 ## Installation
 
-### Repository layout
-
-Keep the README and preview images in these locations:
-
-```text
-RackDash/
-├── README.md
-├── rackdash_logo.png
-└── docs/
-    └── screenshots/
-        ├── logo-mode.png
-        ├── plex.png
-        ├── f1.png
-        └── admin.png
-```
-
-The image paths in this README are **relative paths**, so GitHub renders them automatically as long as the files are committed in those exact locations.
-
-
 ### 1. Install the required system packages
 
 On Debian / Raspberry Pi OS:
