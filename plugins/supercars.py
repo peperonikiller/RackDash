@@ -15,7 +15,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "supercars"
 PLUGIN_NAME = "V8 Supercars"
-PLUGIN_VERSION = "3.0.1"
+PLUGIN_VERSION = "3.0.3"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/supercars.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -53,20 +53,20 @@ _weather_cache = TTLCache(1800)
 # Exact session times are not consistently published far in advance, so this
 # plugin presents event-weekend dates and refreshes standings/results live.
 CALENDAR_2026 = [
-    {"round":1,"name":"Sydney 500","start":"2026-02-20","end":"2026-02-22","circuit":"Sydney Motorsport Park","city":"Sydney","region":"NSW","lat":-33.805,"lon":150.870,"format":"500"},
-    {"round":2,"name":"Melbourne SuperSprint","start":"2026-03-05","end":"2026-03-08","circuit":"Albert Park Grand Prix Circuit","city":"Melbourne","region":"VIC","lat":-37.8497,"lon":144.968,"format":"SuperSprint"},
-    {"round":3,"name":"ITM Taupō Super 440","start":"2026-04-10","end":"2026-04-12","circuit":"Taupō International Motorsport Park","city":"Taupō","region":"NZ","lat":-38.665,"lon":176.143,"format":"Super 440"},
-    {"round":4,"name":"Christchurch Super 440","start":"2026-04-17","end":"2026-04-19","circuit":"Euromarque Motorsport Park","city":"Christchurch","region":"NZ","lat":-43.531,"lon":172.480,"format":"Super 440"},
-    {"round":5,"name":"Tasmania Super 440","start":"2026-05-22","end":"2026-05-24","circuit":"Symmons Plains Raceway","city":"Launceston","region":"TAS","lat":-41.661,"lon":147.253,"format":"Super 440"},
-    {"round":6,"name":"betr Darwin Triple Crown","start":"2026-06-19","end":"2026-06-21","circuit":"Hidden Valley Raceway","city":"Darwin","region":"NT","lat":-12.448,"lon":130.907,"format":"Triple Crown"},
-    {"round":7,"name":"NTI Townsville 500","start":"2026-07-10","end":"2026-07-12","circuit":"Reid Park Street Circuit","city":"Townsville","region":"QLD","lat":-19.270,"lon":146.815,"format":"500"},
-    {"round":8,"name":"Perth Super 440","start":"2026-07-31","end":"2026-08-02","circuit":"Carco.com.au Raceway","city":"Perth","region":"WA","lat":-31.664,"lon":115.787,"format":"Super 440"},
-    {"round":9,"name":"Century Batteries Ipswich Super 440","start":"2026-08-21","end":"2026-08-23","circuit":"Queensland Raceway","city":"Ipswich","region":"QLD","lat":-27.690,"lon":152.654,"format":"Super 440"},
-    {"round":10,"name":"AirTouch 500 at The Bend","start":"2026-09-11","end":"2026-09-13","circuit":"Shell V-Power Motorsport Park","city":"Tailem Bend","region":"SA","lat":-35.307,"lon":139.512,"format":"Enduro 500"},
-    {"round":11,"name":"Repco Bathurst 1000","start":"2026-10-08","end":"2026-10-11","circuit":"Mount Panorama Circuit","city":"Bathurst","region":"NSW","lat":-33.445,"lon":149.557,"format":"Enduro 1000"},
-    {"round":12,"name":"Boost Mobile Gold Coast 500","start":"2026-10-23","end":"2026-10-25","circuit":"Surfers Paradise Street Circuit","city":"Gold Coast","region":"QLD","lat":-27.998,"lon":153.429,"format":"Finals"},
-    {"round":13,"name":"Penrite Oil Sandown 500","start":"2026-11-06","end":"2026-11-08","circuit":"Sandown Raceway","city":"Melbourne","region":"VIC","lat":-37.951,"lon":145.165,"format":"Finals 500"},
-    {"round":14,"name":"bp Adelaide Grand Final","start":"2026-11-26","end":"2026-11-29","circuit":"Adelaide Street Circuit","city":"Adelaide","region":"SA","lat":-34.927,"lon":138.617,"format":"Grand Final"},
+    {"round":1,"name":"Sydney 500","start":"2026-02-20","end":"2026-02-22","circuit":"Sydney Motorsport Park","city":"Sydney","region":"NSW","lat":-33.805,"lon":150.870,"format":"500","track_path":"M190 480 C130 405 155 285 245 235 L330 180 L430 200 L500 145 L610 180 L680 245 L790 230 L835 330 L780 420 L685 440 L615 505 L500 480 L405 525 L300 500 Z"},
+    {"round":2,"name":"Melbourne SuperSprint","start":"2026-03-05","end":"2026-03-08","circuit":"Albert Park Grand Prix Circuit","city":"Melbourne","region":"VIC","lat":-37.8497,"lon":144.968,"format":"SuperSprint","track_path":"M180 455 L145 305 L220 210 L345 185 L430 125 L545 165 L650 140 L770 205 L835 300 L805 405 L700 435 L625 500 L510 470 L420 520 L305 490 L230 520 Z"},
+    {"round":3,"name":"ITM Taupō Super 440","start":"2026-04-10","end":"2026-04-12","circuit":"Taupō International Motorsport Park","city":"Taupō","region":"NZ","lat":-38.665,"lon":176.143,"format":"Super 440","track_path":"M175 460 C120 385 155 270 255 235 C345 205 380 145 470 150 C560 155 585 220 665 205 C755 190 820 250 820 340 C820 425 745 445 685 485 C620 530 530 520 455 480 C385 445 305 535 235 495 Z"},
+    {"round":4,"name":"Christchurch Super 440","start":"2026-04-17","end":"2026-04-19","circuit":"Euromarque Motorsport Park","city":"Christchurch","region":"NZ","lat":-43.531,"lon":172.480,"format":"Super 440","track_path":"M155 480 L140 350 L210 245 L320 225 L390 155 L510 170 L590 235 L690 210 L820 270 L840 375 L750 440 L650 420 L565 510 L450 480 L340 525 L250 500 Z"},
+    {"round":5,"name":"Tasmania Super 440","start":"2026-05-22","end":"2026-05-24","circuit":"Symmons Plains Raceway","city":"Launceston","region":"TAS","lat":-41.661,"lon":147.253,"format":"Super 440","track_path":"M220 330 C220 180 355 140 500 150 C655 160 790 215 790 330 C790 445 655 500 500 510 C355 520 220 475 220 330 Z"},
+    {"round":6,"name":"betr Darwin Triple Crown","start":"2026-06-19","end":"2026-06-21","circuit":"Hidden Valley Raceway","city":"Darwin","region":"NT","lat":-12.448,"lon":130.907,"format":"Triple Crown","track_path":"M165 445 C120 360 165 260 255 230 L350 170 L455 190 L530 135 L645 175 L730 245 L825 300 L790 400 L700 420 L630 505 L520 530 L430 475 L335 520 L235 485 Z"},
+    {"round":7,"name":"NTI Townsville 500","start":"2026-07-10","end":"2026-07-12","circuit":"Reid Park Street Circuit","city":"Townsville","region":"QLD","lat":-19.270,"lon":146.815,"format":"500","track_path":"M150 490 L140 345 L205 285 L180 205 L305 165 L390 220 L475 145 L585 165 L675 230 L795 210 L845 315 L805 430 L695 460 L595 435 L505 515 L385 485 L270 525 Z"},
+    {"round":8,"name":"Perth Super 440","start":"2026-07-31","end":"2026-08-02","circuit":"Carco.com.au Raceway","city":"Perth","region":"WA","lat":-31.664,"lon":115.787,"format":"Super 440","track_path":"M180 455 C120 375 150 270 250 240 C340 215 370 155 460 155 C545 155 580 215 655 200 C750 180 820 245 825 335 C830 420 755 445 685 465 C615 485 585 535 495 520 C405 505 360 455 285 500 C230 530 205 495 180 455 Z"},
+    {"round":9,"name":"Century Batteries Ipswich Super 440","start":"2026-08-21","end":"2026-08-23","circuit":"Queensland Raceway","city":"Ipswich","region":"QLD","lat":-27.690,"lon":152.654,"format":"Super 440","track_path":"M210 325 C210 180 350 140 500 145 C655 150 800 205 800 325 C800 445 655 500 500 505 C350 510 210 470 210 325 Z"},
+    {"round":10,"name":"AirTouch 500 at The Bend","start":"2026-09-11","end":"2026-09-13","circuit":"Shell V-Power Motorsport Park","city":"Tailem Bend","region":"SA","lat":-35.307,"lon":139.512,"format":"Enduro 500","track_path":"M160 430 C120 340 155 245 255 220 L340 160 L445 180 L535 125 L650 165 L735 250 L825 305 L780 395 L690 420 L635 505 L525 535 L440 480 L350 520 L245 480 Z"},
+    {"round":11,"name":"Repco Bathurst 1000","start":"2026-10-08","end":"2026-10-11","circuit":"Mount Panorama Circuit","city":"Bathurst","region":"NSW","lat":-33.445,"lon":149.557,"format":"Enduro 1000","track_path":"M170 465 L145 335 L205 245 L320 215 L410 145 L535 160 L610 220 L715 200 L825 280 L815 395 L725 445 L625 430 L535 510 L420 490 L335 535 L250 505 Z"},
+    {"round":12,"name":"Boost Mobile Gold Coast 500","start":"2026-10-23","end":"2026-10-25","circuit":"Surfers Paradise Street Circuit","city":"Gold Coast","region":"QLD","lat":-27.998,"lon":153.429,"format":"Finals","track_path":"M150 480 L135 345 L220 300 L185 210 L305 160 L395 215 L480 140 L600 165 L675 230 L790 215 L845 320 L800 435 L690 465 L585 440 L505 520 L385 490 L270 525 Z"},
+    {"round":13,"name":"Penrite Oil Sandown 500","start":"2026-11-06","end":"2026-11-08","circuit":"Sandown Raceway","city":"Melbourne","region":"VIC","lat":-37.951,"lon":145.165,"format":"Finals 500","track_path":"M170 450 C115 365 150 260 245 235 C335 210 370 155 455 150 C540 145 585 205 650 190 C750 170 820 240 825 325 C830 410 755 440 690 455 C620 470 585 530 495 520 C405 510 360 455 290 500 C235 530 200 495 170 450 Z"},
+    {"round":14,"name":"bp Adelaide Grand Final","start":"2026-11-26","end":"2026-11-29","circuit":"Adelaide Street Circuit","city":"Adelaide","region":"SA","lat":-34.927,"lon":138.617,"format":"Grand Final","track_path":"M145 470 L135 340 L205 255 L300 235 L360 160 L485 135 L565 190 L660 160 L790 230 L840 335 L800 445 L695 425 L620 505 L505 475 L415 525 L295 490 L225 525 Z"},
 ]
 
 
@@ -137,7 +137,7 @@ def _fetch(url):
     response = requests.get(
         url,
         timeout=8,
-        headers={"User-Agent": "RackDash-Supercars/3.0.1"},
+        headers={"User-Agent": "RackDash-Supercars/3.0.3"},
     )
     response.raise_for_status()
     return response.text
@@ -302,7 +302,7 @@ def _headlines():
         response = requests.get(
             SUPERCARS_NEWS_RSS,
             timeout=7,
-            headers={"User-Agent": "RackDash-Supercars/3.0.1"},
+            headers={"User-Agent": "RackDash-Supercars/3.0.3"},
         )
         response.raise_for_status()
         root = ET.fromstring(response.content)
@@ -389,7 +389,7 @@ def _event_weather(event):
                 "end_date": event["start"],
             },
             timeout=7,
-            headers={"User-Agent": "RackDash-Supercars/3.0.1"},
+            headers={"User-Agent": "RackDash-Supercars/3.0.3"},
         )
         response.raise_for_status()
         daily = response.json().get("daily") or []
@@ -504,9 +504,28 @@ PLUGIN_HTML = r'''
       <span class="track-location" data-role="location"></span>
     </div>
     <div class="sc-track-visual">
-      <div class="sc-chevron"></div>
-      <div class="sc-watermark">SUPERCARS</div>
-      <div class="sc-circuit-name" data-role="circuit">--</div>
+      <div class="sc-track-floor"></div>
+      <svg class="sc-track-svg" viewBox="0 0 1000 650" preserveAspectRatio="xMidYMid meet" role="img" aria-label="3D Supercars circuit map">
+        <defs>
+          <filter id="scTrackGlow">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <linearGradient id="scTrackGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="45%" stop-color="#ff897f"/>
+            <stop offset="100%" stop-color="#e6332a"/>
+          </linearGradient>
+        </defs>
+        <path class="sc-track-shadow" data-role="track-shadow" d=""></path>
+        <path class="sc-track-road" data-role="track-road" d=""></path>
+        <path class="sc-track-light" data-role="track-light" d=""></path>
+        <circle class="sc-start-dot" data-role="start-dot" cx="0" cy="0" r="9"></circle>
+      </svg>
+      <div class="sc-track-caption">
+        <span data-role="track-kind">CIRCUIT</span>
+        <strong data-role="circuit">--</strong>
+      </div>
     </div>
     <div class="track-legend">
       <span><i class="track-glow"></i> REPCO SUPERCARS CHAMPIONSHIP</span>
@@ -568,10 +587,19 @@ PLUGIN_CSS = r'''
 .plugin-supercars .sc-copy{grid-area:race;display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,.9fr);gap:var(--gap);border-left:3px solid var(--sc);background:linear-gradient(110deg,rgba(230,51,42,.055),rgba(255,255,255,.007) 45%,rgba(255,255,255,.004))}
 .plugin-supercars .sc-standings:nth-of-type(3){grid-area:drivers}.plugin-supercars .sc-standings:nth-of-type(4){grid-area:teams}.plugin-supercars .sc-recent{grid-area:recent}.plugin-supercars .sc-headlines{grid-area:headlines}
 .plugin-supercars .track-topline,.plugin-supercars .track-legend{display:flex;justify-content:space-between;gap:.6rem;align-items:center}.plugin-supercars .track-location,.plugin-supercars .track-legend{font-size:.46rem;color:var(--muted)}
-.plugin-supercars .sc-track-visual{position:relative;display:grid;place-items:center;min-height:260px;overflow:hidden;background:radial-gradient(circle at 50% 50%,rgba(230,51,42,.075),transparent 45%)}
-.plugin-supercars .sc-watermark{font-size:clamp(2.8rem,7vw,6rem);font-weight:1000;font-style:italic;letter-spacing:-.06em;color:rgba(255,255,255,.05);transform:skew(-10deg)}
-.plugin-supercars .sc-chevron{position:absolute;width:9rem;height:3rem;border-top:1rem solid rgba(230,51,42,.28);border-right:1rem solid rgba(230,51,42,.28);transform:skew(-24deg) rotate(7deg)}
-.plugin-supercars .sc-circuit-name{position:absolute;bottom:1rem;left:1rem;right:1rem;text-align:center;font-size:.68rem;font-weight:850;color:#dce8ee}
+.plugin-supercars .sc-track-visual{position:relative;display:grid;place-items:center;min-height:280px;overflow:hidden;perspective:1000px;background:radial-gradient(circle at 50% 43%,rgba(230,51,42,.10),transparent 38%)}
+.plugin-supercars .sc-track-floor{position:absolute;width:82%;height:58%;left:9%;bottom:7%;transform:rotateX(72deg);transform-origin:center bottom;border-radius:50%;background:radial-gradient(ellipse at center,rgba(230,51,42,.07),rgba(255,255,255,.01) 46%,transparent 73%);border:1px solid rgba(230,51,42,.035)}
+.plugin-supercars .sc-track-floor::after{content:"";position:absolute;inset:0;border-radius:50%;background-image:linear-gradient(rgba(230,51,42,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(230,51,42,.025) 1px,transparent 1px);background-size:28px 28px;mask-image:radial-gradient(ellipse at center,#000,transparent 72%)}
+.plugin-supercars .sc-track-svg{position:relative;z-index:2;width:min(92%,720px);height:88%;min-height:265px;overflow:visible;transform:rotateX(54deg) rotateZ(-2deg) translateY(-2%);transform-origin:center center;filter:drop-shadow(0 27px 18px rgba(0,0,0,.55))}
+.plugin-supercars .sc-track-shadow,.plugin-supercars .sc-track-road,.plugin-supercars .sc-track-light{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.plugin-supercars .sc-track-shadow{stroke:#000;stroke-width:42;opacity:.62;transform:translateY(14px)}
+.plugin-supercars .sc-track-road{stroke:#21191a;stroke-width:32}
+.plugin-supercars .sc-track-light{stroke:url(#scTrackGradient);stroke-width:11;filter:url(#scTrackGlow);stroke-dasharray:19 11;animation:scTrackDash 2.35s linear infinite}
+.plugin-supercars .sc-start-dot{fill:#fff;stroke:var(--sc);stroke-width:5;filter:drop-shadow(0 0 8px rgba(230,51,42,.78))}
+.plugin-supercars .sc-track-caption{position:absolute;z-index:5;bottom:.45rem;left:50%;transform:translateX(-50%);width:92%;text-align:center;text-shadow:0 2px 12px #000}
+.plugin-supercars .sc-track-caption span{display:block;font-size:.42rem;letter-spacing:.12em;color:var(--sc);font-weight:900}
+.plugin-supercars .sc-track-caption strong{display:block;margin-top:.08rem;font-size:.66rem;color:#dce8ee}
+@keyframes scTrackDash{to{stroke-dashoffset:-60}}
 .plugin-supercars .track-glow{display:inline-block;width:.6rem;height:.18rem;border-radius:1rem;background:var(--sc);box-shadow:0 0 10px rgba(230,51,42,.5)}
 .plugin-supercars .sc-race-hero h1{font-size:clamp(1.5rem,3vw,2.6rem);line-height:1;margin:.18rem 0}.plugin-supercars .countdown{font-size:clamp(1.5rem,3vw,2.5rem);font-weight:950;margin:.65rem 0;color:#fff}
 .plugin-supercars .sc-weather-block{margin-top:.8rem;padding-top:.7rem;border-top:1px solid var(--border)}
@@ -581,7 +609,8 @@ PLUGIN_CSS = r'''
 .plugin-supercars .recent-race-name{margin:.45rem 0;font-size:.72rem;font-weight:900}.plugin-supercars .podium-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem}.plugin-supercars .podium-card{padding:.48rem;border:1px solid var(--border);border-radius:.4rem}.plugin-supercars .podium-card strong{display:block;font-size:.57rem}.plugin-supercars .podium-card small{display:block;margin-top:.1rem;font-size:.42rem;color:var(--muted)}
 .plugin-supercars .headline-list{display:grid;gap:.28rem;margin-top:.45rem}.plugin-supercars .headline-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.6rem;padding:.35rem .42rem;border:1px solid rgba(255,255,255,.035);border-radius:.35rem;text-decoration:none;color:inherit}.plugin-supercars .headline-title{font-size:.55rem;font-weight:780;line-height:1.2}.plugin-supercars .headline-meta{font-size:.42rem;color:var(--muted);text-align:right;white-space:nowrap}
 @media(max-width:1050px){.plugin-supercars .sc-layout{grid-template-columns:minmax(320px,.9fr) minmax(420px,1.1fr)}.plugin-supercars .sc-copy{grid-template-columns:1fr}.plugin-supercars .weather-card{grid-template-columns:1fr 1fr}}
-@media(max-width:720px){.plugin-supercars .sc-layout{grid-template-columns:1fr;grid-template-areas:"race" "track" "drivers" "teams" "recent" "headlines"}.plugin-supercars .sc-copy{border-left:0}.plugin-supercars .podium-list{grid-template-columns:1fr}}
+@media(max-width:720px){.plugin-supercars .sc-layout{grid-template-columns:1fr;grid-template-areas:"race" "track" "drivers" "teams" "recent" "headlines"}.plugin-supercars .sc-copy{border-left:0}.plugin-supercars .podium-list{grid-template-columns:1fr}.plugin-supercars .sc-track-svg{width:96%;height:82%}}
+@media(prefers-reduced-motion:reduce){.plugin-supercars .sc-track-light{animation:none!important}}
 '''
 
 PLUGIN_JS = r'''
@@ -592,6 +621,25 @@ window.RackDashPlugins.supercars={
   sessions(rows){return (rows||[]).map(row=>`<div class="session-row"><span>${RackDash.escape(row.name||"")}</span><span>${RackDash.escape(row.date||"")}</span></div>`).join("")||`<div class="empty-state">Event schedule unavailable.</div>`},
   weather(data){if(!data?.available)return `<div class="empty-state">Forecast not available yet.</div>`;return `<div class="weather-primary"><div class="weather-condition">${RackDash.escape(data.condition||"Forecast")}</div><div class="weather-temp">${Math.round(Number(data.temp_high_f||0))}° <small>HIGH · ${Math.round(Number(data.temp_low_f||0))}° LOW</small></div></div><div class="weather-metric"><span>RAIN CHANCE</span><strong>${Math.round(Number(data.rain_chance||0))}%</strong></div><div class="weather-metric"><span>MAX WIND</span><strong>${Math.round(Number(data.wind_mph||0))} mph</strong></div>`},
   headlines(rows){return (rows||[]).map(row=>`<a class="headline-row" href="${RackDash.escape(row.url||"#")}" target="_blank" rel="noopener"><span class="headline-title">${RackDash.escape(row.title||"")}</span><span class="headline-meta">${RackDash.escape(row.source||"")}${row.age_seconds!=null?`<br>${RackDash.escape(this.age(row.age_seconds))}`:""}</span></a>`).join("")||`<div class="empty-state">Supercars headlines unavailable.</div>`},
+  renderTrack(event,root){
+    const path=String(event?.track_path||"");
+    const road=root.querySelector('[data-role="track-road"]');
+    const shadow=root.querySelector('[data-role="track-shadow"]');
+    const light=root.querySelector('[data-role="track-light"]');
+    const dot=root.querySelector('[data-role="start-dot"]');
+    [road,shadow,light].forEach(node=>{if(node)node.setAttribute("d",path)});
+    if(light&&dot&&path){
+      try{
+        const len=light.getTotalLength();
+        const point=light.getPointAtLength(Math.min(18,len*.03));
+        dot.setAttribute("cx",point.x);
+        dot.setAttribute("cy",point.y);
+      }catch(_err){
+        dot.setAttribute("cx","0");
+        dot.setAttribute("cy","0");
+      }
+    }
+  },
   render(data,root){
     root.querySelector('[data-role="drivers"]').innerHTML=this.standings(data.drivers,true)||`<div class="empty-state">Driver standings unavailable.</div>`;
     root.querySelector('[data-role="teams"]').innerHTML=this.standings(data.teams,false)||`<div class="empty-state">Team standings unavailable.</div>`;
@@ -618,6 +666,9 @@ window.RackDashPlugins.supercars={
     root.querySelector('[data-role="countdown"]').textContent=this.duration(e.countdown);
     root.querySelector('[data-role="sessions"]').innerHTML=this.sessions(e.sessions);
     root.querySelector('[data-role="weather"]').innerHTML=this.weather(data.weather);
+    const trackKind=root.querySelector('[data-role="track-kind"]');
+    if(trackKind)trackKind.textContent=(e.format||"CIRCUIT").toUpperCase();
+    this.renderTrack(e,root);
   }
 };
 '''

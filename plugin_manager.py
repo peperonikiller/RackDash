@@ -207,6 +207,64 @@ class PluginManager:
         self._save_state()
         return self._settings(plugin)
 
+    def update_plugin_order(self, plugin_ids: list[str]):
+        """
+        Persist plugin order from the Admin drag-and-drop list.
+
+        PLUGIN_ORDER remains the default for plugins that have never been
+        manually ordered. Once the user reorders the list, RackDash stores
+        order values in plugin_state.json so plugin source files do not need
+        to change.
+        """
+        if not isinstance(plugin_ids, list):
+            raise ValueError("plugin_ids must be a list")
+
+        known = {plugin.id for plugin in self._plugins}
+        requested = []
+
+        for plugin_id in plugin_ids:
+            plugin_id = str(plugin_id).strip()
+            if plugin_id in known and plugin_id not in requested:
+                requested.append(plugin_id)
+
+        # Preserve any loaded plugins omitted by an older/stale browser.
+        remaining = [
+            plugin.id
+            for plugin in sorted(
+                self._plugins,
+                key=lambda item: (
+                    self._settings(item)["order"],
+                    item.name.lower(),
+                ),
+            )
+            if plugin.id not in requested
+        ]
+
+        final_order = requested + remaining
+
+        for index, plugin_id in enumerate(final_order, start=1):
+            row = self._state.setdefault("plugins", {}).setdefault(plugin_id, {})
+            row["order"] = index * 10
+
+        self._save_state()
+
+        # Keep the in-memory ordering consistent for Admin/API callers until
+        # the frontend performs its normal refresh.
+        self._plugins.sort(
+            key=lambda item: (
+                self._settings(item)["order"],
+                item.name.lower(),
+            )
+        )
+
+        return [
+            {
+                "id": plugin.id,
+                "order": self._settings(plugin)["order"],
+            }
+            for plugin in self._plugins
+        ]
+
     def load_all(self):
         self._plugins.clear()
         self._failures.clear()

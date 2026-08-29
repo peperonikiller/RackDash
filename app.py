@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 import time
 from pathlib import Path
@@ -28,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.0.1"
+APP_VERSION = "3.0.3"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
 
@@ -141,6 +142,56 @@ def local_ip() -> str:
         sock.close()
 
 
+
+def _version_key(value: str):
+    parts = []
+    for token in re.findall(r"\d+", str(value or "")):
+        try:
+            parts.append(int(token))
+        except ValueError:
+            parts.append(0)
+    return tuple((parts + [0, 0, 0])[:3])
+
+
+def update_attention_status() -> dict:
+    """
+    Read persisted update-monitor state only. This never contacts GitHub, so it
+    is cheap enough to include in /api/system for kiosk notification polling.
+    """
+    status = update_monitor.status()
+    count = 0
+
+    core = status.get("core") or {}
+    if core.get("ok") and isinstance(core.get("result"), dict):
+        result = core["result"]
+        if (
+            result.get("status") == "update_available"
+            and _version_key(result.get("latest")) > _version_key(APP_VERSION)
+        ):
+            count += 1
+
+    plugin_rows = status.get("plugins") or {}
+    for plugin in plugins._plugins:
+        row = plugin_rows.get(plugin.id) or {}
+        result = row.get("result") if row.get("ok") else None
+        if not isinstance(result, dict):
+            continue
+        if (
+            result.get("status") == "update_available"
+            and _version_key(result.get("latest"))
+                > _version_key(plugin.plugin_version)
+        ):
+            count += 1
+
+    return {
+        "available": count > 0,
+        "count": count,
+        "checked_at": max(
+            int((core or {}).get("checked_at") or 0),
+            int(status.get("plugin_batch_checked_at") or 0),
+        ),
+    }
+
 def system_status() -> dict:
     temp = None
     try:
@@ -169,6 +220,7 @@ def system_status() -> dict:
         "disk": psutil.disk_usage("/").percent,
         "ip": local_ip(),
         "version": APP_VERSION,
+        "update_attention": update_attention_status(),
     }
 
 
@@ -466,15 +518,39 @@ def api_admin_update_settings_save():
 
 @app.post("/api/admin/plugin-updates/check-all")
 def api_admin_plugin_updates_check_all():
+    """Check RackDash core and every update-capable plugin in one action."""
     if not _require_admin():
         return _admin_denied()
 
-    rows = update_monitor.check_plugins(automatic=False)
+    core = update_monitor.check_core(automatic=False)
+    plugins_checked = update_monitor.check_plugins(automatic=False)
+
     return jsonify({
         "ok": True,
-        "plugins": rows,
+        "core": core,
+        "plugins": plugins_checked,
         "checked_at": int(time.time()),
     })
+
+
+@app.post("/api/admin/plugins/order")
+def api_admin_plugins_order():
+    """Persist the visual plugin order without requiring plugin source changes."""
+    if not _require_admin():
+        return _admin_denied()
+
+    payload = request.get_json(silent=True) or {}
+    plugin_ids = payload.get("plugin_ids") or []
+
+    try:
+        order = plugins.update_plugin_order(plugin_ids)
+        return jsonify({
+            "ok": True,
+            "order": order,
+            "reload_required": True,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 200
 
 
 @app.get("/api/admin/i2c")

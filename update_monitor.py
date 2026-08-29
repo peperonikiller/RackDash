@@ -9,11 +9,12 @@ from pathlib import Path
 from config_manager import parse_env, update_schema_values
 
 
-DAILY_SECONDS = 24 * 60 * 60
+UPDATE_CHECK_SECONDS = 30 * 60
+SCHEDULER_WAKE_SECONDS = 60
 
 
 class UpdateMonitor:
-    """Persist and optionally perform daily RackDash/plugin update checks."""
+    """Persist and optionally perform automatic RackDash/plugin update checks."""
 
     def __init__(
         self,
@@ -67,6 +68,8 @@ class UpdateMonitor:
 
     def settings(self):
         values = parse_env(self.config_path)
+        # Retain the historical env keys for backwards compatibility. The UI
+        # presents them as one "Automatically check for updates" setting.
         return {
             "core_daily": self._bool(
                 values.get("RACKDASH_DAILY_UPDATE_CHECK", "false")
@@ -116,8 +119,7 @@ class UpdateMonitor:
                     "true" if plugins_daily else "false",
             },
         )
-        # Wake immediately so enabling a check does not wait for the next
-        # five-minute scheduler wakeup.
+        # Run due-check evaluation immediately after the setting changes.
         self._wake.set()
         return self.settings()
 
@@ -186,8 +188,6 @@ class UpdateMonitor:
     def check_plugins(self, automatic=False):
         rows = {}
         for plugin in self.plugin_provider():
-            # Official plugins always have a source in the RackDash repo.
-            # Third-party plugins need a GitHub source to support checking.
             if (
                 not getattr(plugin, "official", False)
                 and not getattr(plugin, "github_url", "")
@@ -209,7 +209,10 @@ class UpdateMonitor:
             timestamp = int(timestamp or 0)
         except Exception:
             timestamp = 0
-        return timestamp <= 0 or time.time() - timestamp >= DAILY_SECONDS
+        return (
+            timestamp <= 0
+            or time.time() - timestamp >= UPDATE_CHECK_SECONDS
+        )
 
     def run_due_checks(self):
         settings = self.settings()
@@ -242,8 +245,9 @@ class UpdateMonitor:
                     )
 
             self._wake.clear()
-            # Wake every five minutes, or immediately after settings change.
-            self._wake.wait(300)
+            # One-minute scheduler resolution keeps the 30-minute interval
+            # accurate without generating unnecessary GitHub requests.
+            self._wake.wait(SCHEDULER_WAKE_SECONDS)
             if self._stop.is_set():
                 return
 

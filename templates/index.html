@@ -80,7 +80,7 @@
           </div>
           <div class="admin-hero-actions">
             <button type="button" class="health-button" id="healthCoreSettings">CORE SETTINGS</button>
-            <button type="button" class="health-check-all" id="healthCheckAll">CHECK UPDATES</button>
+            <button type="button" class="health-check-all" id="healthCheckAll">CHECK ALL UPDATES</button>
             <button type="button" class="health-button health-restart" id="healthRestart">RESTART</button>
           </div>
         </div>
@@ -113,10 +113,31 @@
           <div class="admin-section-title">
             <div><span class="eyebrow">PLUGINS</span><h2>Installed integrations</h2><div class="muted">Health, configuration, presentation, updates, testing, and rollback in one place.</div></div>
           </div>
+          <section class="surface health-install-panel compact-admin-card admin-plugin-installer">
+            <div class="admin-card-head">
+              <div>
+                <div class="section-label">INSTALL THIRD-PARTY PLUGIN</div>
+                <div class="muted">Paste a compatible GitHub repository. RackDash previews and validates the plugin before installation.</div>
+              </div>
+            </div>
+            <div class="health-install-row">
+              <input id="healthInstallUrl" placeholder="https://github.com/owner/rackdash-plugin" aria-label="Third-party plugin GitHub URL">
+              <button id="healthInstallButton" type="button">INSTALL</button>
+            </div>
+            <div class="health-install-status" id="healthInstallStatus"></div>
+          </section>
+
           <section class="surface health-plugin-panel">
-            <div class="admin-card-head"><div><div class="section-label">INSTALLED PLUGINS</div><div class="muted">Plugin code updates and visibility changes automatically reload the dashboard.</div></div></div>
+            <div class="admin-card-head">
+              <div>
+                <div class="section-label">INSTALLED PLUGINS</div>
+                <div class="muted">Drag the handle to change tab order. Display settings and plugin actions are grouped consistently below each plugin.</div>
+              </div>
+              <div class="plugin-order-help">DRAG TO REORDER</div>
+            </div>
             <div class="health-plugin-list" id="healthPluginList"></div>
           </section>
+
           <section class="surface failed-plugin-panel" id="failedPluginPanel" hidden>
             <div class="admin-card-head">
               <div>
@@ -126,11 +147,6 @@
               <span class="quarantine-chip" id="failedPluginCount">0 FAILED</span>
             </div>
             <div class="failed-plugin-list" id="failedPluginList"></div>
-          </section>
-          <section class="surface health-install-panel compact-admin-card">
-            <div class="admin-card-head"><div><div class="section-label">INSTALL THIRD-PARTY PLUGIN</div><div class="muted">Repository must contain rackdash-plugin.json. RackDash applies the install and reloads automatically.</div></div></div>
-            <div class="health-install-row"><input id="healthInstallUrl" placeholder="https://github.com/owner/rackdash-plugin"><button id="healthInstallButton" type="button">INSTALL</button></div>
-            <div class="health-install-status" id="healthInstallStatus"></div>
           </section>
         </section>
 
@@ -166,7 +182,7 @@
             <div class="rackdash-update-grid"><div><span>CURRENT</span><strong data-rackdash-update="current">v{{ app_version }}</strong></div><div><span>LATEST</span><strong data-rackdash-update="latest">NOT CHECKED</strong></div><div><span>STATUS</span><strong data-rackdash-update="status">NOT CHECKED</strong></div></div>
             <div class="rackdash-update-actions"><button class="health-button" id="rackdashUpdateCheck">CHECK RACKDASH UPDATE</button><button class="health-button primary-admin-action" id="rackdashUpdateNow">UPDATE RACKDASH NOW</button></div>
             <div class="update-auto-settings"><label><input type="checkbox" id="automaticUpdateCheck"> AUTOMATICALLY CHECK FOR UPDATES</label><button class="health-button" id="saveUpdateCheckSettings">SAVE UPDATE SETTINGS</button></div>
-            <div class="rackdash-update-message muted" id="rackdashUpdateMessage">Manual checks are always available. When enabled, RackDash checks the core and all supported plugins once every 24 hours.</div>
+            <div class="rackdash-update-message muted" id="rackdashUpdateMessage">Manual checks are always available. When enabled, RackDash checks the core and all supported plugins every 30 minutes.</div>
             <div class="update-last-check muted" id="updateLastCheck"></div>
           </section>
         </section>

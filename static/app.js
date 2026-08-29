@@ -399,13 +399,33 @@
     return update;
   }
 
-  function setAdminAttention(active){
+  let adminUpdateAttention=false;
+  let adminIssueAttention=false;
+
+  function refreshAdminAttention(){
     const adminButton=document.querySelector('[data-tab="health"]')||
       [...document.querySelectorAll(".tab-button,.tab")].find(el=>
         String(el.textContent||"").trim().toUpperCase()==="ADMIN"
       );
     if(!adminButton)return;
-    adminButton.classList.toggle("admin-attention",Boolean(active));
+    adminButton.classList.toggle(
+      "admin-attention",
+      Boolean(adminUpdateAttention||adminIssueAttention)
+    );
+    adminButton.classList.toggle(
+      "admin-update-attention",
+      Boolean(adminUpdateAttention)
+    );
+  }
+
+  function setAdminUpdateAttention(active){
+    adminUpdateAttention=Boolean(active);
+    refreshAdminAttention();
+  }
+
+  function setAdminIssueAttention(active){
+    adminIssueAttention=Boolean(active);
+    refreshAdminAttention();
   }
 
   function renderPersistedUpdates(data){
@@ -475,6 +495,97 @@
     }
   }
 
+  async function savePluginOrder(list){
+    const plugin_ids=[...list.querySelectorAll(".health-plugin-row[data-health-plugin]")]
+      .map(row=>row.dataset.healthPlugin)
+      .filter(Boolean);
+
+    const response=await adminFetch("/api/admin/plugins/order",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({plugin_ids})
+    });
+    const result=await response.json();
+    if(!result.ok)throw new Error(result.error||"Unable to save plugin order");
+    return result;
+  }
+
+  function setupPluginDragOrder(list){
+    if(!list)return;
+
+    let dragging=null;
+    let pointerId=null;
+    let moved=false;
+
+    const placeAtPointer=(clientY)=>{
+      if(!dragging)return;
+      const rows=[...list.querySelectorAll(".health-plugin-row")]
+        .filter(row=>row!==dragging);
+
+      let target=null;
+      for(const row of rows){
+        const box=row.getBoundingClientRect();
+        if(clientY < box.top + box.height/2){
+          target=row;
+          break;
+        }
+      }
+
+      if(target){
+        if(target!==dragging.nextElementSibling){
+          list.insertBefore(dragging,target);
+          moved=true;
+        }
+      }else if(list.lastElementChild!==dragging){
+        list.appendChild(dragging);
+        moved=true;
+      }
+    };
+
+    list.querySelectorAll("[data-plugin-drag]").forEach(handle=>{
+      handle.addEventListener("pointerdown",event=>{
+        if(event.button!==undefined&&event.button!==0)return;
+        const row=handle.closest(".health-plugin-row");
+        if(!row)return;
+        dragging=row;
+        pointerId=event.pointerId;
+        moved=false;
+        row.classList.add("is-dragging");
+        list.classList.add("is-reordering");
+        handle.setPointerCapture?.(pointerId);
+        event.preventDefault();
+      });
+
+      handle.addEventListener("pointermove",event=>{
+        if(!dragging||event.pointerId!==pointerId)return;
+        placeAtPointer(event.clientY);
+        event.preventDefault();
+      });
+
+      const finish=async event=>{
+        if(!dragging||event.pointerId!==pointerId)return;
+        const row=dragging;
+        dragging=null;
+        pointerId=null;
+        row.classList.remove("is-dragging");
+        list.classList.remove("is-reordering");
+
+        if(!moved)return;
+
+        try{
+          await savePluginOrder(list);
+          reloadAfterFrontendChange("Applying plugin order");
+        }catch(error){
+          alert(error.message);
+          await loadHealth();
+        }
+      };
+
+      handle.addEventListener("pointerup",finish);
+      handle.addEventListener("pointercancel",finish);
+    });
+  }
+
   async function loadHealth(){
     if(!healthPage)return;
     try{
@@ -509,8 +620,8 @@
         return reconciled.status==="update_available";
       });
 
-      setAdminAttention(
-        issueCount>0 ||
+      setAdminIssueAttention(issueCount>0);
+      setAdminUpdateAttention(
         coreUpdate?.status==="update_available" ||
         pluginUpdatesAvailable
       );
@@ -539,7 +650,15 @@
       const list=document.getElementById("healthPluginList");
       list.innerHTML=(data.plugins||[]).map(p=>`
         <div class="health-plugin-row" data-health-plugin="${RackDash.escape(p.id)}">
-          <div>
+          <button
+            type="button"
+            class="plugin-drag-handle"
+            data-plugin-drag="${RackDash.escape(p.id)}"
+            aria-label="Drag ${RackDash.escape(p.name)} to reorder"
+            title="Drag to reorder"
+          ><span></span><span></span><span></span></button>
+
+          <div class="plugin-admin-identity">
             <div class="health-plugin-name"><span class="health-dot ${RackDash.escape(p.health?.status||"waiting")}"></span>${RackDash.escape(p.name)}</div>
             <div class="health-plugin-id">${RackDash.escape(p.id)}</div>
             <div class="health-runtime">
@@ -551,8 +670,17 @@
               ${p.health?.missing_config?.length?`<span class="health-runtime-error">MISSING CONFIG · ${RackDash.escape(p.health.missing_config.join(", "))}</span>`:""}
             </div>
           </div>
-          <div class="health-version">v${RackDash.escape(p.version||"0.0.0")}${p.official?` <span class="official-chip">OFFICIAL</span>`:""}</div>
-          <div class="health-update-status" data-update-status>Not checked</div>
+
+          <div class="plugin-admin-version">
+            <span class="admin-field-label">VERSION</span>
+            <div class="health-version">v${RackDash.escape(p.version||"0.0.0")}${p.official?` <span class="official-chip">OFFICIAL</span>`:""}</div>
+          </div>
+
+          <div class="plugin-admin-update">
+            <span class="admin-field-label">UPDATE STATUS</span>
+            <div class="health-update-status" data-update-status>Not checked</div>
+          </div>
+
           <div class="health-plugin-actions">
             <label class="health-toggle"><input type="checkbox" data-plugin-enabled="${RackDash.escape(p.id)}" ${p.enabled?"checked":""}> ENABLED</label>
             ${(p.config_fields||[]).length?`<button type="button" data-plugin-settings="${RackDash.escape(p.id)}">SETTINGS</button>`:""}
@@ -564,15 +692,16 @@
             <button type="button" data-plugin-debug="${RackDash.escape(p.id)}">DEBUG</button>
             <button type="button" data-plugin-reload="${RackDash.escape(p.id)}">RELOAD</button>
           </div>
+
           <div class="plugin-display-controls">
-            <label>ORDER <input type="number" data-display-order="${RackDash.escape(p.id)}" value="${p.display?.order??100}"></label>
-            <label>REFRESH <input type="number" data-display-refresh="${RackDash.escape(p.id)}" value="${p.display?.refresh_seconds??p.refresh_seconds??10}"></label>
-            <label>ROTATE <input type="number" data-display-duration="${RackDash.escape(p.id)}" value="${p.display?.rotation_seconds??12}"></label>
-            <label><input type="checkbox" data-display-tab="${RackDash.escape(p.id)}" ${p.display?.show_tab!==false?"checked":""}> TAB</label>
-            <label><input type="checkbox" data-display-auto="${RackDash.escape(p.id)}" ${p.display?.auto_rotate!==false?"checked":""}> AUTO</label>
+            <label><span>REFRESH</span><input type="number" min="1" data-display-refresh="${RackDash.escape(p.id)}" value="${p.display?.refresh_seconds??p.refresh_seconds??10}"></label>
+            <label><span>ROTATE</span><input type="number" min="3" data-display-duration="${RackDash.escape(p.id)}" value="${p.display?.rotation_seconds??12}"></label>
+            <label class="plugin-display-check"><input type="checkbox" data-display-tab="${RackDash.escape(p.id)}" ${p.display?.show_tab!==false?"checked":""}><span>TAB</span></label>
+            <label class="plugin-display-check"><input type="checkbox" data-display-auto="${RackDash.escape(p.id)}" ${p.display?.auto_rotate!==false?"checked":""}><span>AUTO</span></label>
             <button type="button" data-save-display="${RackDash.escape(p.id)}">SAVE DISPLAY</button>
           </div>
-          <div>${(p.capabilities||[]).map(c=>`<span class="capability-chip">${RackDash.escape(c)}</span>`).join("")}</div>
+
+          <div class="plugin-capabilities">${(p.capabilities||[]).map(c=>`<span class="capability-chip">${RackDash.escape(c)}</span>`).join("")}</div>
         </div>`).join("");
 
       list.querySelectorAll("[data-plugin-settings]").forEach(btn=>btn.addEventListener("click",()=>{const p=(window.__RackDashHealth?.plugins||[]).find(x=>x.id===btn.dataset.pluginSettings);if(p)openSettings(`${p.name} Settings`,p.config_fields||[],`/api/health/plugin/${encodeURIComponent(p.id)}/config`);}));
@@ -587,7 +716,6 @@
       list.querySelectorAll("[data-save-display]").forEach(btn=>btn.addEventListener("click",async()=>{
         const id=btn.dataset.saveDisplay;
         const payload={
-          order:Number(list.querySelector(`[data-display-order="${CSS.escape(id)}"]`)?.value||100),
           refresh_seconds:Number(list.querySelector(`[data-display-refresh="${CSS.escape(id)}"]`)?.value||10),
           rotation_seconds:Number(list.querySelector(`[data-display-duration="${CSS.escape(id)}"]`)?.value||12),
           show_tab:!!list.querySelector(`[data-display-tab="${CSS.escape(id)}"]`)?.checked,
@@ -595,6 +723,7 @@
         };
         try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/display`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const x=await r.json();if(!x.ok)throw new Error(x.error||"Display settings failed");reloadAfterFrontendChange("Applying display settings");}catch(e){alert(e.message);}
       }));
+      setupPluginDragOrder(list);
       list.querySelectorAll("[data-plugin-rollback]").forEach(btn=>btn.addEventListener("click",()=>rollbackPlugin(btn.dataset.pluginRollback)));
       list.querySelectorAll("[data-plugin-debug]").forEach(btn=>btn.addEventListener("click",()=>debugPlugin(btn.dataset.pluginDebug)));
       list.querySelectorAll("[data-plugin-reload]").forEach(btn=>btn.addEventListener("click",async()=>{
@@ -630,7 +759,7 @@
       });
       renderI2C(data.i2c||{});renderAdminSecurity(data.admin_auth||{});
       renderPersistedUpdates(data);
-      await loadI2C();
+      if(!Object.keys(i2cDisplaySpecs).length)await loadI2C();
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
     }
@@ -747,7 +876,7 @@
       );
       message.textContent=
         result.settings.core_daily&&result.settings.plugins_daily
-          ?"Automatic update checks enabled. RackDash will check the core and supported plugins every 24 hours."
+          ?"Automatic update checks enabled. RackDash will check the core and supported plugins every 30 minutes."
           :"Automatic update checks disabled. Manual update checks remain available.";
     }catch(error){
       message.textContent=error.message;
@@ -859,6 +988,9 @@
       set("cpu",`${Math.round(d.cpu||0)}%`);
       set("ram",`${Math.round(d.ram||0)}%`);
       set("temp",d.temp==null?"—":`${d.temp}°C`);
+      if(d.update_attention){
+        setAdminUpdateAttention(!!d.update_attention.available);
+      }
       set("ip",d.ip||"—");
       set("uptime",RackDash.uptime(d.uptime));
     }catch(e){
@@ -943,7 +1075,7 @@
       );
       const result=await response.json();
       if(!result.ok)throw new Error(
-        result.error||"Plugin update check failed"
+        result.error||"Update check failed"
       );
       await loadHealth();
     }catch(error){
