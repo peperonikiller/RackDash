@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+
+# RackDash local/runtime files
+config.env
+plugin_state.json
+data/
+backups/
+logs/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
