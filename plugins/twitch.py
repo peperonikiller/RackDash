@@ -14,6 +14,8 @@ from _shared import TTLCache
 PLUGIN_ID = "twitch"
 PLUGIN_NAME = "Twitch"
 PLUGIN_VERSION = "3.0.1"
+PLUGIN_OFFICIAL = True
+PLUGIN_SOURCE_PATH = "plugins/twitch.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
 PLUGIN_MAX_RACKDASH = ""
 PLUGIN_CAPABILITIES = ["network"]

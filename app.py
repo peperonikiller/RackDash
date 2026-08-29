@@ -30,7 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.0.5"
+APP_VERSION = "3.0.6"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -211,14 +211,30 @@ def _check_core_update_now():
 
 
 def _check_plugin_update_now(plugin):
-    if plugin.official:
-        if not plugin.source_path:
+    # Official RackDash plugins must be compared against their individual
+    # source files, never against the RackDash application release tag.
+    #
+    # Legacy official plugins may be missing PLUGIN_OFFICIAL and/or
+    # PLUGIN_SOURCE_PATH. If a plugin points at the RackDash repository, infer
+    # plugins/<id>.py so old installs do not incorrectly report the RackDash
+    # core version as a plugin update.
+    same_as_core_repo = (
+        str(getattr(plugin, "github_url", "") or "").rstrip("/")
+        == str(RACKDASH_GITHUB or "").rstrip("/")
+    )
+
+    source_path = str(getattr(plugin, "source_path", "") or "").strip()
+    if not source_path and same_as_core_repo:
+        source_path = f"plugins/{plugin.id}.py"
+
+    if getattr(plugin, "official", False) or same_as_core_repo:
+        if not source_path:
             raise ValueError(
                 "Official plugin is missing PLUGIN_SOURCE_PATH"
             )
         result = official_plugin_updater.check(
             plugin.id,
-            plugin.source_path,
+            source_path,
             plugin.plugin_version,
             force=True,
         )
