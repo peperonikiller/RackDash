@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
-PLUGIN_VERSION = "3.0.4"
+PLUGIN_VERSION = "3.0.5"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/f1.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -58,7 +58,7 @@ def _get_json(path: str):
     response = requests.get(
         f"{F1_API}/{path.lstrip('/')}",
         timeout=7,
-        headers={"User-Agent": "RackDash-F1/3.0.4"},
+        headers={"User-Agent": "RackDash-F1/3.0.5"},
     )
     response.raise_for_status()
     return response.json()
@@ -198,7 +198,7 @@ def _headlines():
         response = requests.get(
             F1_NEWS_RSS,
             timeout=7,
-            headers={"User-Agent": "RackDash-F1/3.0.4"},
+            headers={"User-Agent": "RackDash-F1/3.0.5"},
         )
         response.raise_for_status()
         root = ET.fromstring(response.content)
@@ -301,7 +301,7 @@ def _race_day_weather(lat, lon, race_date):
                 "end_date": race_date,
             },
             timeout=7,
-            headers={"User-Agent": "RackDash-F1/3.0.4"},
+            headers={"User-Agent": "RackDash-F1/3.0.5"},
         )
         response.raise_for_status()
         payload = response.json()
@@ -443,7 +443,7 @@ def register_routes(app):
         safe = re.sub(r"[^a-z0-9_-]", "", track.lower())
         url = f"https://raw.githubusercontent.com/MasterPlay007/F1-Track-Layouts-SVG/main/{safe}.svg"
         try:
-            response = requests.get(url, timeout=5, headers={"User-Agent": "RackDash-F1/3.0.4"})
+            response = requests.get(url, timeout=5, headers={"User-Agent": "RackDash-F1/3.0.5"})
             response.raise_for_status()
             return Response(response.content, content_type="image/svg+xml")
         except Exception:
@@ -508,10 +508,7 @@ PLUGIN_HTML = r'''
     </div>
     <div class="f1-track-stage">
       <div class="f1-track-floor"></div>
-      <div class="f1-orbit f1-orbit-a"></div>
-      <div class="f1-orbit f1-orbit-b"></div>
       <div data-role="track" class="track-host"></div>
-      <div class="f1-scan-beam"></div>
     </div>
     <div class="track-legend">
       <span><i class="track-glow"></i> RACING LINE</span>
@@ -716,56 +713,9 @@ PLUGIN_CSS = r'''
   stroke:none!important;
   filter:drop-shadow(0 0 5px rgba(98,213,255,.8))!important;
 }
-.plugin-f1 .f1-orbit{
-  position:absolute;
-  z-index:1;
-  border-radius:50%;
-  pointer-events:none;
-  border:1px solid rgba(98,213,255,.055);
-}
-.plugin-f1 .f1-orbit::before{
-  content:"";
-  position:absolute;
-  top:-3px;
-  left:50%;
-  width:6px;
-  height:6px;
-  border-radius:50%;
-  background:#62d5ff;
-  box-shadow:0 0 13px rgba(98,213,255,.82);
-}
-.plugin-f1 .f1-orbit-a{
-  width:min(70%,430px);
-  aspect-ratio:1;
-  animation:f1OrbitSpin 20s linear infinite;
-}
-.plugin-f1 .f1-orbit-b{
-  width:min(49%,300px);
-  aspect-ratio:1;
-  border-color:rgba(232,0,45,.06);
-  animation:f1OrbitSpin 13s linear reverse infinite;
-}
-.plugin-f1 .f1-orbit-b::before{
-  background:#e8002d;
-  box-shadow:0 0 13px rgba(232,0,45,.72);
-}
-.plugin-f1 .f1-scan-beam{
-  position:absolute;
-  z-index:5;
-  left:10%;
-  right:10%;
-  height:1px;
-  pointer-events:none;
-  opacity:.16;
-  background:linear-gradient(90deg,transparent,#62d5ff 20%,#fff 50%,#62d5ff 80%,transparent);
-  box-shadow:0 0 12px rgba(98,213,255,.45);
-  animation:f1ScanBeam 6.5s linear infinite;
-}
 @keyframes f1GridDrift{to{background-position:0 30px,30px 0}}
 @keyframes f1FloorBreathe{0%,100%{opacity:.55;transform:rotateX(73deg) scale(.96)}50%{opacity:1;transform:rotateX(73deg) scale(1.035)}}
-@keyframes f1OrbitSpin{to{transform:rotate(360deg)}}
 @keyframes f1TracerPulse{0%,100%{opacity:.35;transform:scale(.7)}50%{opacity:1;transform:scale(1.18)}}
-@keyframes f1ScanBeam{0%{top:8%}100%{top:91%}}
 @media(max-width:720px){
   .plugin-f1 .f1-track-stage{min-height:330px}
   .plugin-f1 .f1-track-stage .track-host{min-height:310px;width:98%}
@@ -773,8 +723,6 @@ PLUGIN_CSS = r'''
 @media(prefers-reduced-motion:reduce){
   .plugin-f1 .f1-track-floor,
   .plugin-f1 .f1-track-floor::after,
-  .plugin-f1 .f1-orbit,
-  .plugin-f1 .f1-scan-beam,
   .plugin-f1 .track-host .rackdash-tracer-halo{animation:none!important}
   .plugin-f1 .f1-track-stage:hover .track-host svg{
     transform:rotateX(55deg) rotateZ(-2deg) translateY(-2%);

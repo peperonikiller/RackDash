@@ -13,7 +13,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "indycar"
 PLUGIN_NAME = "IndyCar"
-PLUGIN_VERSION = "3.0.4"
+PLUGIN_VERSION = "3.0.5"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/indycar.py"
 PLUGIN_MIN_RACKDASH = "3.0.0"
@@ -90,7 +90,7 @@ class TableParser(HTMLParser):
             self.table=None
 
 def _fetch(url):
-    r=requests.get(url,timeout=9,headers={"User-Agent":"RackDash-IndyCar/3.0.4","Accept":"text/html,application/xhtml+xml"}); r.raise_for_status(); return r.text
+    r=requests.get(url,timeout=9,headers={"User-Agent":"RackDash-IndyCar/3.0.5","Accept":"text/html,application/xhtml+xml"}); r.raise_for_status(); return r.text
 
 def _tables(url):
     p=TableParser(); p.feed(_fetch(url)); return p.tables
@@ -136,7 +136,7 @@ def _headlines():
     if cached is not None: return cached
     if not INDYCAR_NEWS_RSS: return []
     try:
-        r=requests.get(INDYCAR_NEWS_RSS,timeout=7,headers={"User-Agent":"RackDash-IndyCar/3.0.4"}); r.raise_for_status(); root=ET.fromstring(r.content); rows=[]
+        r=requests.get(INDYCAR_NEWS_RSS,timeout=7,headers={"User-Agent":"RackDash-IndyCar/3.0.5"}); r.raise_for_status(); root=ET.fromstring(r.content); rows=[]
         for item in root.findall(".//item")[:12]:
             title=(item.findtext("title") or "").strip()
             if not title: continue
@@ -154,7 +154,7 @@ def _weather(e):
     if cached and cached.get("_key")==key: return dict(cached)
     labels={0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",61:"Light rain",63:"Rain",65:"Heavy rain",80:"Showers",81:"Showers",82:"Heavy showers",95:"Thunderstorms",99:"Severe storms"}
     try:
-        r=requests.get("https://api.open-meteo.com/v1/forecast",params={"latitude":e["lat"],"longitude":e["lon"],"daily":"weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max","temperature_unit":"fahrenheit","wind_speed_unit":"mph","timezone":"auto","start_date":e["date"],"end_date":e["date"]},timeout=7,headers={"User-Agent":"RackDash-IndyCar/3.0.4"}); r.raise_for_status(); d=r.json().get("daily") or {}
+        r=requests.get("https://api.open-meteo.com/v1/forecast",params={"latitude":e["lat"],"longitude":e["lon"],"daily":"weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max","temperature_unit":"fahrenheit","wind_speed_unit":"mph","timezone":"auto","start_date":e["date"],"end_date":e["date"]},timeout=7,headers={"User-Agent":"RackDash-IndyCar/3.0.5"}); r.raise_for_status(); d=r.json().get("daily") or {}
         if not d.get("time"): raise RuntimeError("forecast unavailable")
         first=lambda k:(d.get(k) or [None])[0]
         result={"_key":key,"available":True,"condition":labels.get(int(first("weather_code") or -1),"Forecast"),"temp_high_f":first("temperature_2m_max"),"temp_low_f":first("temperature_2m_min"),"rain_chance":first("precipitation_probability_max"),"wind_mph":first("wind_speed_10m_max")}
@@ -209,19 +209,6 @@ PLUGIN_CSS = r'''
 .plugin-indycar .indy-start-dot{
   animation:indyStartPulse 1.45s ease-in-out infinite;
 }
-.plugin-indycar .indy-track-stage::after{
-  content:"";
-  position:absolute;
-  z-index:6;
-  left:9%;
-  right:9%;
-  height:1px;
-  pointer-events:none;
-  opacity:.14;
-  background:linear-gradient(90deg,transparent,#80d4ff 20%,#fff 50%,#e2231a 80%,transparent);
-  box-shadow:0 0 13px rgba(128,212,255,.42);
-  animation:indyScan 6.8s linear infinite;
-}
 @keyframes indyTrackFloat{
   0%,100%{transform:rotateX(54deg) rotateZ(-2deg) translateY(-2%) scale(.99)}
   50%{transform:rotateX(50deg) rotateZ(-1deg) translateY(-4%) scale(1.015)}
@@ -231,13 +218,11 @@ PLUGIN_CSS = r'''
   0%,100%{opacity:.55;filter:drop-shadow(0 0 5px rgba(226,35,26,.5))}
   50%{opacity:1;filter:drop-shadow(0 0 14px rgba(128,212,255,.95))}
 }
-@keyframes indyScan{0%{top:8%}100%{top:91%}}
 @media(prefers-reduced-motion:reduce){
   .plugin-indycar .indy-track-svg,
   .plugin-indycar .indy-floor::after,
   .plugin-indycar .indy-start-dot,
-  .plugin-indycar .indy-track-stage::after{animation:none!important}
-}
+  }
 
 '''
 

@@ -208,6 +208,73 @@ class PluginManager:
         self._save_state()
         return self._settings(plugin)
 
+    def update_display_settings_batch(
+        self,
+        values_by_plugin: dict,
+        plugin_ids: list[str] | None = None,
+    ):
+        """
+        Save all plugin presentation controls and optional drag order in one
+        atomic plugin_state.json write.
+        """
+        if not isinstance(values_by_plugin, dict):
+            raise ValueError("plugins must be an object")
+
+        for plugin_id, values in values_by_plugin.items():
+            plugin = self.get(str(plugin_id))
+            if not plugin:
+                continue
+            if not isinstance(values, dict):
+                continue
+
+            row = self._state.setdefault("plugins", {}).setdefault(plugin.id, {})
+
+            for key in ("enabled", "show_tab", "auto_rotate", "auto_scroll"):
+                if key in values:
+                    row[key] = bool(values[key])
+
+            for key in ("refresh_seconds", "rotation_seconds"):
+                if key in values:
+                    row[key] = int(values[key])
+
+        if isinstance(plugin_ids, list) and plugin_ids:
+            known = {plugin.id for plugin in self._plugins}
+            requested = []
+            for plugin_id in plugin_ids:
+                plugin_id = str(plugin_id).strip()
+                if plugin_id in known and plugin_id not in requested:
+                    requested.append(plugin_id)
+
+            remaining = [
+                plugin.id
+                for plugin in sorted(
+                    self._plugins,
+                    key=lambda item: (
+                        self._settings(item)["order"],
+                        item.name.lower(),
+                    ),
+                )
+                if plugin.id not in requested
+            ]
+
+            for index, plugin_id in enumerate(requested + remaining, start=1):
+                row = self._state.setdefault("plugins", {}).setdefault(plugin_id, {})
+                row["order"] = index * 10
+
+        self._save_state()
+        self._plugins.sort(
+            key=lambda item: (
+                self._settings(item)["order"],
+                item.name.lower(),
+            )
+        )
+
+        return {
+            plugin.id: self._settings(plugin)
+            for plugin in self._plugins
+        }
+
+
     def update_plugin_order(self, plugin_ids: list[str]):
         """
         Persist plugin order from the Admin drag-and-drop list.

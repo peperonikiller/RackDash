@@ -84,6 +84,29 @@
   let healthRefreshTimer=null;
 
 
+  const LAST_PAGE_KEY="rackdash-last-page";
+  const ADMIN_CHECK_AT_KEY="rackdash-admin-update-check-at";
+  const ADMIN_CHECK_VERSION_KEY="rackdash-admin-update-check-version";
+  let pluginDisplayDirty=false;
+
+  function rememberPage(value){
+    try{sessionStorage.setItem(LAST_PAGE_KEY,String(value||""))}catch(_e){}
+  }
+
+  function rememberedPage(){
+    try{return sessionStorage.getItem(LAST_PAGE_KEY)||""}catch(_e){return ""}
+  }
+
+  function markPluginDisplayDirty(active=true){
+    pluginDisplayDirty=Boolean(active);
+    const button=document.getElementById("pluginDisplaySaveAll");
+    if(button){
+      button.classList.toggle("has-changes",pluginDisplayDirty);
+      button.textContent=pluginDisplayDirty?"SAVE SETTINGS":"SETTINGS SAVED";
+    }
+  }
+
+
   function showConnectionLost(){
     if(serverOffline)return;
     serverOffline=true;
@@ -331,6 +354,7 @@
     });
 
     const id=tabPluginIds[activeIndex];
+    rememberPage(id);
     const meta=pluginById[id];
     if(meta)document.documentElement.style.setProperty("--accent",meta.accent||"#dce8ee");
     tabs[activeIndex]?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
@@ -531,6 +555,41 @@
     refreshAdminAttention();
   }
 
+  function releaseNotesHtml(notes){
+    if(!notes||!notes.body)return "";
+    const body=String(notes.body)
+      .replace(/\r/g,"")
+      .split("\n")
+      .map(line=>line.trim())
+      .filter(Boolean)
+      .slice(0,18)
+      .map(line=>{
+        const cleaned=line
+          .replace(/^#{1,6}\s*/,"")
+          .replace(/^[-*+]\s+/,"• ");
+        return RackDash.escape(cleaned);
+      })
+      .join("<br>");
+
+    const link=notes.url
+      ?`<a href="${RackDash.escape(notes.url)}" target="_blank" rel="noopener">VIEW ON GITHUB</a>`
+      :"";
+
+    return `
+      <div class="release-notes-title">${RackDash.escape(notes.title||"Release notes")}</div>
+      <div class="release-notes-body">${body}</div>
+      ${link}
+    `;
+  }
+
+  function renderReleaseNotes(target,notes){
+    if(!target)return;
+    const html=releaseNotesHtml(notes);
+    target.innerHTML=html;
+    target.hidden=!html;
+  }
+
+
   function renderPersistedUpdates(data){
     const updates=data.updates||{};
     const settings=updates.settings||{};
@@ -555,6 +614,10 @@
       }
       const message=document.getElementById("rackdashUpdateMessage");
       if(message)message.textContent=u.message||"Update status unavailable.";
+      renderReleaseNotes(
+        document.getElementById("rackdashReleaseNotes"),
+        u.status==="update_available"?u.release_notes:null
+      );
     }else if(core.checked_at){
       const status=document.querySelector('[data-rackdash-update="status"]');
       if(status){
@@ -577,6 +640,10 @@
         );
         status.textContent=u.message||"Unknown";
         status.className=`health-update-status ${u.status||""}`;
+        renderReleaseNotes(
+          row?.querySelector("[data-release-notes]"),
+          u.status==="update_available"?u.release_notes:null
+        );
         if(u.status==="update_available")available++;
       }else if(saved.checked_at&&status){
         status.textContent=saved.error||"Check failed";
@@ -675,13 +742,7 @@
 
         if(!moved)return;
 
-        try{
-          await savePluginOrder(list);
-          reloadAfterFrontendChange("Applying plugin order");
-        }catch(error){
-          alert(error.message);
-          await loadHealth();
-        }
+        markPluginDisplayDirty(true);
       };
 
       handle.addEventListener("pointerup",finish);
@@ -705,14 +766,14 @@
       healthPage.querySelector('[data-health="issue-count"]').textContent=String(issueCount);
       healthPage.querySelector('[data-health="status"]').textContent=issueCount?"ATTENTION":"OK";
 
-      const coreUpdateRaw=(data.update_monitor?.core?.ok&&data.update_monitor?.core?.result)
-        ?data.update_monitor.core.result
+      const coreUpdateRaw=(data.updates?.core?.ok&&data.updates?.core?.result)
+        ?data.updates.core.result
         :null;
       const coreUpdate=coreUpdateRaw
         ?reconcilePersistedUpdate(coreUpdateRaw,data.app?.version||coreUpdateRaw.current||"")
         :null;
 
-      const pluginUpdateRows=data.update_monitor?.plugins||{};
+      const pluginUpdateRows=data.updates?.plugins||{};
       const pluginUpdatesAvailable=(data.plugins||[]).some(plugin=>{
         const saved=pluginUpdateRows[plugin.id];
         if(!saved?.ok||!saved.result)return false;
@@ -782,6 +843,7 @@
           <div class="plugin-admin-update">
             <span class="admin-field-label">UPDATE STATUS</span>
             <div class="health-update-status" data-update-status>Not checked</div>
+            <div class="health-release-notes" data-release-notes hidden></div>
           </div>
 
           <div class="health-plugin-actions">
@@ -802,7 +864,6 @@
             <label class="plugin-display-check"><input type="checkbox" data-display-tab="${RackDash.escape(p.id)}" ${p.display?.show_tab!==false?"checked":""}><span>TAB</span></label>
             <label class="plugin-display-check"><input type="checkbox" data-display-auto="${RackDash.escape(p.id)}" ${p.display?.auto_rotate!==false?"checked":""}><span>AUTO</span></label>
             <label class="plugin-display-check"><input type="checkbox" data-display-scroll="${RackDash.escape(p.id)}" ${p.display?.auto_scroll===true?"checked":""}><span>AUTO SCROLL</span></label>
-            <button type="button" data-save-display="${RackDash.escape(p.id)}">SAVE DISPLAY</button>
           </div>
 
           <div class="plugin-capabilities">${(p.capabilities||[]).map(c=>`<span class="capability-chip">${RackDash.escape(c)}</span>`).join("")}</div>
@@ -817,17 +878,12 @@
           reloadAfterFrontendChange("Updating plugin visibility");
         }catch(e){toggle.checked=!toggle.checked;alert(e.message);}
       }));
-      list.querySelectorAll("[data-save-display]").forEach(btn=>btn.addEventListener("click",async()=>{
-        const id=btn.dataset.saveDisplay;
-        const payload={
-          refresh_seconds:Number(list.querySelector(`[data-display-refresh="${CSS.escape(id)}"]`)?.value||10),
-          rotation_seconds:Number(list.querySelector(`[data-display-duration="${CSS.escape(id)}"]`)?.value||30),
-          show_tab:!!list.querySelector(`[data-display-tab="${CSS.escape(id)}"]`)?.checked,
-          auto_rotate:!!list.querySelector(`[data-display-auto="${CSS.escape(id)}"]`)?.checked,
-          auto_scroll:!!list.querySelector(`[data-display-scroll="${CSS.escape(id)}"]`)?.checked
-        };
-        try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/display`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const x=await r.json();if(!x.ok)throw new Error(x.error||"Display settings failed");reloadAfterFrontendChange("Applying display settings");}catch(e){alert(e.message);}
-      }));
+      list.querySelectorAll(
+        "[data-display-refresh],[data-display-duration],[data-display-tab],[data-display-auto],[data-display-scroll]"
+      ).forEach(control=>{
+        control.addEventListener("change",()=>markPluginDisplayDirty(true));
+        control.addEventListener("input",()=>markPluginDisplayDirty(true));
+      });
       setupPluginDragOrder(list);
       list.querySelectorAll("[data-plugin-rollback]").forEach(btn=>btn.addEventListener("click",()=>rollbackPlugin(btn.dataset.pluginRollback)));
       list.querySelectorAll("[data-plugin-debug]").forEach(btn=>btn.addEventListener("click",()=>debugPlugin(btn.dataset.pluginDebug)));
@@ -864,6 +920,7 @@
       });
       renderI2C(data.i2c||{});renderAdminSecurity(data.admin_auth||{});
       renderPersistedUpdates(data);
+      markPluginDisplayDirty(false);
       if(!Object.keys(i2cDisplaySpecs).length)await loadI2C();
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
@@ -884,6 +941,11 @@
         status.textContent=u.message||"Unknown";
         status.className=`health-update-status ${u.status||""}`;
       }
+      renderReleaseNotes(
+        row?.querySelector("[data-release-notes]"),
+        u.status==="update_available"?u.release_notes:null
+      );
+      if(u.status==="update_available")setAdminUpdateAttention(true);
       refreshHealthUpdateCount();
     }catch(e){
       if(status){status.textContent="Check failed";status.className="health-update-status error";}
@@ -926,6 +988,8 @@
         status.className=u.status||"";
       }
       if(message)message.textContent=u.message||"Update status unavailable.";
+      renderReleaseNotes(document.getElementById("rackdashReleaseNotes"),u.status==="update_available"?u.release_notes:null);
+      if(u.status==="update_available")setAdminUpdateAttention(true);
       const last=document.getElementById("updateLastCheck");
       if(last){
         const pluginBatch=window.__RackDashHealth?.updates||{};
@@ -1061,9 +1125,92 @@
     if(target)target.textContent=String(count);
   }
 
+  async function saveAllPluginDisplaySettings(){
+    const list=document.getElementById("healthPluginList");
+    const button=document.getElementById("pluginDisplaySaveAll");
+    if(!list||!button)return;
+
+    const plugin_ids=[...list.querySelectorAll(".health-plugin-row[data-health-plugin]")]
+      .map(row=>row.dataset.healthPlugin)
+      .filter(Boolean);
+
+    const pluginsPayload={};
+    plugin_ids.forEach(id=>{
+      const escaped=CSS.escape(id);
+      pluginsPayload[id]={
+        refresh_seconds:Number(list.querySelector(`[data-display-refresh="${escaped}"]`)?.value||10),
+        rotation_seconds:Number(list.querySelector(`[data-display-duration="${escaped}"]`)?.value||30),
+        show_tab:!!list.querySelector(`[data-display-tab="${escaped}"]`)?.checked,
+        auto_rotate:!!list.querySelector(`[data-display-auto="${escaped}"]`)?.checked,
+        auto_scroll:!!list.querySelector(`[data-display-scroll="${escaped}"]`)?.checked
+      };
+    });
+
+    button.disabled=true;
+    button.textContent="SAVING...";
+    try{
+      const response=await adminFetch("/api/admin/plugins/display-settings",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          plugin_ids,
+          plugins:pluginsPayload
+        })
+      });
+      const result=await response.json();
+      if(!result.ok)throw new Error(result.error||"Unable to save plugin settings");
+      markPluginDisplayDirty(false);
+      rememberPage("admin");
+      reloadAfterFrontendChange("Applying plugin settings");
+    }catch(error){
+      alert(error.message);
+      button.disabled=false;
+      markPluginDisplayDirty(true);
+    }
+  }
+
+  document.getElementById("pluginDisplaySaveAll")?.addEventListener(
+    "click",
+    saveAllPluginDisplaySettings
+  );
+
+
+  async function refreshUpdatesOnAdminOpen(force=false){
+    const now=Date.now();
+    let lastAt=0;
+    let lastVersion="";
+    try{
+      lastAt=Number(sessionStorage.getItem(ADMIN_CHECK_AT_KEY)||0);
+      lastVersion=sessionStorage.getItem(ADMIN_CHECK_VERSION_KEY)||"";
+    }catch(_e){}
+
+    const version=String(cfg.appVersion||"");
+    const versionChanged=version&&lastVersion!==version;
+    if(!force&&!versionChanged&&now-lastAt<60000)return;
+
+    try{
+      const response=await adminFetch(
+        "/api/admin/plugin-updates/check-all",
+        {method:"POST"}
+      );
+      const result=await response.json();
+      if(!result.ok)throw new Error(result.error||"Update check failed");
+      try{
+        sessionStorage.setItem(ADMIN_CHECK_AT_KEY,String(Date.now()));
+        sessionStorage.setItem(ADMIN_CHECK_VERSION_KEY,version);
+      }catch(_e){}
+      await loadHealth();
+    }catch(error){
+      // Admin content is still usable if GitHub is unavailable.
+      console.warn("Admin update refresh failed:",error);
+    }
+  }
+
+
   async function showHealth(){
     stopAutoScroll(true);
     showingHealth=true;
+    rememberPage("admin");
     pages.forEach(p=>p.classList.remove("active"));
     tabs.forEach(t=>{
       t.classList.remove("active");
@@ -1075,6 +1222,7 @@
     document.documentElement.style.setProperty("--accent","#9aa9b2");
     rotateElapsed=0;
     await loadHealth();
+    refreshUpdatesOnAdminOpen(false);
   }
 
   function scheduleNeighborFetch(){
@@ -1183,6 +1331,19 @@
       if(!result.ok)throw new Error(
         result.error||"Update check failed"
       );
+      const coreResult=result.core?.result||{};
+      const pluginResults=Object.values(result.plugins||{})
+        .map(row=>row?.result||{});
+      if(
+        coreResult.status==="update_available"||
+        pluginResults.some(row=>row.status==="update_available")
+      ){
+        setAdminUpdateAttention(true);
+      }
+      try{
+        sessionStorage.setItem(ADMIN_CHECK_AT_KEY,String(Date.now()));
+        sessionStorage.setItem(ADMIN_CHECK_VERSION_KEY,String(cfg.appVersion||""));
+      }catch(_e){}
       await loadHealth();
     }catch(error){
       alert(error.message);
@@ -1295,7 +1456,13 @@
   });
 
   setLayoutClass();
-  show(0);
+  const restore=rememberedPage();
+  if(restore==="admin"&&healthPage&&healthTab){
+    showHealth();
+  }else{
+    const restoreIndex=tabPluginIds.indexOf(restore);
+    show(restoreIndex>=0?restoreIndex:0);
+  }
   updateSystem();
   scheduleNeighborFetch();
   setInterval(tick,1000);

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import psutil
+import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, make_response, render_template, request, session, send_file
 
@@ -29,7 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.0.4"
+APP_VERSION = "3.0.5"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -92,11 +93,120 @@ official_plugin_updater = OfficialPluginUpdater(
     branch="main",
 )
 
+
+_RELEASE_NOTES_CACHE = {}
+_RELEASE_NOTES_CACHE_SECONDS = 900
+
+
+def _github_repo_parts(url: str):
+    match = re.match(
+        r"^https?://(?:www\.)?github\.com/([^/]+)/([^/#?]+)",
+        str(url or "").strip(),
+        re.I,
+    )
+    if not match:
+        return None
+    return (
+        match.group(1),
+        re.sub(r"\.git$", "", match.group(2)),
+    )
+
+
+def _github_release_notes(github_url: str, version: str):
+    """
+    Fetch release notes for a detected update. Prefer a release whose tag
+    exactly matches the detected version, then fall back to the latest release.
+    Results are cached so opening Admin never adds unnecessary GitHub traffic.
+    """
+    repo = _github_repo_parts(github_url)
+    if not repo or not version:
+        return None
+
+    owner, name = repo
+    clean = str(version).strip()
+    cache_key = (owner, name, clean)
+    cached = _RELEASE_NOTES_CACHE.get(cache_key)
+    now = time.time()
+
+    if cached and now - cached["checked_at"] < _RELEASE_NOTES_CACHE_SECONDS:
+        return dict(cached["result"]) if cached["result"] else None
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "RackDash-Release-Notes",
+    }
+
+    payload = None
+    for tag in (clean, clean.lstrip("v"), f"v{clean.lstrip('v')}"):
+        try:
+            response = requests.get(
+                f"https://api.github.com/repos/{owner}/{name}/releases/tags/{tag}",
+                headers=headers,
+                timeout=6,
+            )
+            if response.status_code == 200:
+                payload = response.json()
+                break
+            if response.status_code not in (404, 422):
+                response.raise_for_status()
+        except Exception:
+            payload = None
+
+    if payload is None:
+        try:
+            response = requests.get(
+                f"https://api.github.com/repos/{owner}/{name}/releases/latest",
+                headers=headers,
+                timeout=6,
+            )
+            if response.status_code == 200:
+                latest = response.json()
+                latest_tag = str(latest.get("tag_name") or "").strip()
+                if _version_key(latest_tag) == _version_key(clean):
+                    payload = latest
+        except Exception:
+            payload = None
+
+    result = None
+    if payload:
+        body = str(payload.get("body") or "").strip()
+        result = {
+            "title": str(payload.get("name") or payload.get("tag_name") or clean),
+            "body": body[:12000],
+            "url": str(payload.get("html_url") or "").strip(),
+            "published_at": str(payload.get("published_at") or "").strip(),
+        }
+
+    _RELEASE_NOTES_CACHE[cache_key] = {
+        "checked_at": now,
+        "result": result,
+    }
+    return dict(result) if result else None
+
+
+def _attach_release_notes(result: dict, github_url: str):
+    result = dict(result or {})
+    if result.get("status") != "update_available":
+        return result
+
+    notes = _github_release_notes(
+        github_url,
+        result.get("latest"),
+    )
+    if notes:
+        result["release_notes"] = notes
+    return result
+
+
 def _check_core_update_now():
-    return github_update_status(
+    result = github_update_status(
         RACKDASH_GITHUB,
         APP_VERSION,
         force=True,
+    )
+    return _attach_release_notes(
+        result,
+        RACKDASH_GITHUB,
     )
 
 
@@ -106,17 +216,25 @@ def _check_plugin_update_now(plugin):
             raise ValueError(
                 "Official plugin is missing PLUGIN_SOURCE_PATH"
             )
-        return official_plugin_updater.check(
+        result = official_plugin_updater.check(
             plugin.id,
             plugin.source_path,
             plugin.plugin_version,
             force=True,
         )
+        return _attach_release_notes(
+            result,
+            RACKDASH_GITHUB,
+        )
 
-    return github_update_status(
+    result = github_update_status(
         plugin.github_url,
         plugin.plugin_version,
         force=True,
+    )
+    return _attach_release_notes(
+        result,
+        plugin.github_url,
     )
 
 
@@ -639,6 +757,26 @@ def api_admin_auth_config():
         if "enabled" in payload:admin_security.set_enabled(bool(payload["enabled"]))
         return jsonify({"ok":True,**admin_security.status()})
     except Exception as exc:return jsonify({"ok":False,"error":str(exc)}),200
+
+@app.post("/api/admin/plugins/display-settings")
+def api_admin_plugins_display_settings():
+    if not _require_admin():
+        return _admin_denied()
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = plugins.update_display_settings_batch(
+            payload.get("plugins") or {},
+            payload.get("plugin_ids") or [],
+        )
+        return jsonify({
+            "ok": True,
+            "display": result,
+            "reload_required": True,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 200
+
 
 @app.post("/api/admin/plugin/<plugin_id>/display")
 def api_admin_plugin_display(plugin_id):

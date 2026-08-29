@@ -138,6 +138,10 @@
             <div class="health-plugin-list" id="healthPluginList"></div>
           </section>
 
+          <button type="button" class="plugin-settings-save-all" id="pluginDisplaySaveAll">
+            SAVE SETTINGS
+          </button>
+
           <section class="surface failed-plugin-panel" id="failedPluginPanel" hidden>
             <div class="admin-card-head">
               <div>
@@ -183,6 +187,7 @@
             <div class="rackdash-update-actions"><button class="health-button" id="rackdashUpdateCheck">CHECK RACKDASH UPDATE</button><button class="health-button primary-admin-action" id="rackdashUpdateNow">UPDATE RACKDASH NOW</button></div>
             <div class="update-auto-settings"><label><input type="checkbox" id="automaticUpdateCheck"> AUTOMATICALLY CHECK FOR UPDATES</label><button class="health-button" id="saveUpdateCheckSettings">SAVE UPDATE SETTINGS</button></div>
             <div class="rackdash-update-message muted" id="rackdashUpdateMessage">Manual checks are always available. When enabled, RackDash checks the core and all supported plugins every 30 minutes.</div>
+            <div class="update-release-notes" id="rackdashReleaseNotes" hidden></div>
             <div class="update-last-check muted" id="updateLastCheck"></div>
           </section>
         </section>
@@ -250,6 +255,7 @@
 
 <script>
 window.RACKDASH_CONFIG = {
+  appVersion: {{ app_version|tojson }},
   rotateSeconds: {{ rotate_seconds|int }},
   plugins: {{ plugins|tojson }},
   ui: {{ ui_config|tojson }}

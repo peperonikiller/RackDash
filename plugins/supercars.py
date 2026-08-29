@@ -15,7 +15,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "supercars"
 PLUGIN_NAME = "V8 Supercars"
-PLUGIN_VERSION = "3.0.4"
+PLUGIN_VERSION = "3.0.5"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/supercars.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -137,7 +137,7 @@ def _fetch(url):
     response = requests.get(
         url,
         timeout=8,
-        headers={"User-Agent": "RackDash-Supercars/3.0.4"},
+        headers={"User-Agent": "RackDash-Supercars/3.0.5"},
     )
     response.raise_for_status()
     return response.text
@@ -302,7 +302,7 @@ def _headlines():
         response = requests.get(
             SUPERCARS_NEWS_RSS,
             timeout=7,
-            headers={"User-Agent": "RackDash-Supercars/3.0.4"},
+            headers={"User-Agent": "RackDash-Supercars/3.0.5"},
         )
         response.raise_for_status()
         root = ET.fromstring(response.content)
@@ -389,7 +389,7 @@ def _event_weather(event):
                 "end_date": event["start"],
             },
             timeout=7,
-            headers={"User-Agent": "RackDash-Supercars/3.0.4"},
+            headers={"User-Agent": "RackDash-Supercars/3.0.5"},
         )
         response.raise_for_status()
         daily = response.json().get("daily") or []
@@ -622,19 +622,6 @@ PLUGIN_CSS = r'''
 .plugin-supercars .sc-start-dot{
   animation:scStartPulse 1.5s ease-in-out infinite;
 }
-.plugin-supercars .sc-track-visual::after{
-  content:"";
-  position:absolute;
-  z-index:6;
-  left:9%;
-  right:9%;
-  height:1px;
-  pointer-events:none;
-  opacity:.13;
-  background:linear-gradient(90deg,transparent,#ff897f 22%,#fff 50%,#ff897f 78%,transparent);
-  box-shadow:0 0 12px rgba(230,51,42,.42);
-  animation:scScan 7s linear infinite;
-}
 @keyframes scTrackFloat{
   0%,100%{transform:rotateX(54deg) rotateZ(-2deg) translateY(-2%) scale(.99)}
   50%{transform:rotateX(51deg) rotateZ(-1deg) translateY(-4%) scale(1.015)}
@@ -644,13 +631,11 @@ PLUGIN_CSS = r'''
   0%,100%{opacity:.55;filter:drop-shadow(0 0 5px rgba(230,51,42,.5))}
   50%{opacity:1;filter:drop-shadow(0 0 13px rgba(230,51,42,.95))}
 }
-@keyframes scScan{0%{top:8%}100%{top:91%}}
 @media(prefers-reduced-motion:reduce){
   .plugin-supercars .sc-track-svg,
   .plugin-supercars .sc-track-floor::after,
   .plugin-supercars .sc-start-dot,
-  .plugin-supercars .sc-track-visual::after{animation:none!important}
-}
+  }
 
 '''
 
