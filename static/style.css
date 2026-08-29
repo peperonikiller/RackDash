@@ -31,7 +31,7 @@ button,input{font:inherit}
   gap:clamp(.65rem,1.5vw,1.2rem);padding:0 clamp(.7rem,1.5vw,1.2rem);
   border-bottom:1px solid var(--border);background:rgba(7,12,16,.92)
 }
-.brand{font-weight:950;font-size:clamp(.95rem,2vw,1.45rem);letter-spacing:.12em;white-space:nowrap}.brand span{color:#58d67d}
+.brand{appearance:none;border:0;background:transparent;color:inherit;padding:.28rem .15rem;font:inherit;font-weight:950;font-size:clamp(.95rem,2vw,1.45rem);letter-spacing:.12em;white-space:nowrap;cursor:pointer;border-radius:.35rem;touch-action:manipulation;transition:filter .18s ease,transform .18s ease}.brand span{color:#58d67d}.brand:hover,.brand:focus-visible{filter:drop-shadow(0 0 9px rgba(88,214,125,.34))}.brand:active{transform:scale(.97)}.brand:focus-visible{outline:1px solid rgba(88,214,125,.55);outline-offset:3px}
 .tabs{
   display:flex;align-items:stretch;gap:.15rem;min-width:0;height:100%;
   overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x
@@ -355,3 +355,34 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
     text-decoration-thickness:2px;
   }
 }
+
+
+/* RackDash 3.0 visual/performance polish */
+[hidden]{display:none!important}
+.surface{background:linear-gradient(145deg,rgba(255,255,255,.018),rgba(255,255,255,.005)),var(--surface)}
+.plugin-page.active{animation:rackdashPageIn .22s ease-out both}
+@keyframes rackdashPageIn{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+button,a,input,select{-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:1px solid color-mix(in srgb,var(--accent) 60%,white);outline-offset:2px}
+.plugin-scroll{scrollbar-color:rgba(150,175,188,.28) transparent;scrollbar-width:thin}
+
+.logo-showcase{position:fixed;inset:0;z-index:10000;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 50% 48%,rgba(35,107,73,.18),transparent 28%),radial-gradient(circle at 50% 50%,rgba(25,58,76,.22),transparent 52%),linear-gradient(180deg,#030608,#071016 58%,#020405);isolation:isolate}
+.logo-showcase::before{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent 0 28%,rgba(88,214,125,.035) 34%,transparent 41% 69%,rgba(87,174,221,.03) 76%,transparent 83%);animation:rackdashHaloSpin 22s linear infinite}
+.logo-showcase::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at center,transparent 35%,rgba(0,0,0,.62) 100%)}
+.logo-showcase-grid{position:absolute;inset:-15%;opacity:.16;transform:perspective(700px) rotateX(65deg) translateY(30%);transform-origin:center bottom;background-image:linear-gradient(rgba(88,214,125,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(88,214,125,.12) 1px,transparent 1px);background-size:54px 54px;animation:rackdashGridDrift 9s linear infinite}
+.logo-showcase-mark{position:relative;z-index:4;appearance:none;border:0;background:transparent;color:#f2f7f4;display:grid;place-items:center;gap:.35rem;padding:2.5rem 3rem;cursor:pointer;touch-action:manipulation;filter:drop-shadow(0 0 28px rgba(88,214,125,.12));animation:rackdashLogoFloat 4.8s ease-in-out infinite}
+.logo-showcase-mark::before{content:"";position:absolute;width:min(62vw,560px);aspect-ratio:1;border:1px solid rgba(88,214,125,.09);border-radius:50%;box-shadow:0 0 45px rgba(88,214,125,.05),inset 0 0 45px rgba(88,214,125,.035);animation:rackdashRingPulse 4s ease-in-out infinite}
+.logo-kicker{font-size:clamp(.48rem,1vw,.72rem);letter-spacing:.48em;font-weight:800;color:#7c9690;transform:translateX(.22em)}
+.logo-word{position:relative;font-size:clamp(3.5rem,12vw,10rem);line-height:.86;letter-spacing:.08em;font-weight:1000;text-shadow:0 0 42px rgba(255,255,255,.055)}
+.logo-word span{color:#58d67d;text-shadow:0 0 28px rgba(88,214,125,.23)}
+.logo-sub{margin-top:.45rem;font-size:clamp(.45rem,.8vw,.62rem);letter-spacing:.35em;color:#60756f;opacity:.7;animation:rackdashResumePulse 2.2s ease-in-out infinite}
+.logo-showcase-orbit{position:absolute;z-index:2;border-radius:50%;border:1px solid rgba(88,214,125,.08);pointer-events:none}
+.logo-orbit-one{width:min(74vw,760px);aspect-ratio:1;animation:rackdashOrbitSpin 18s linear infinite}
+.logo-orbit-one::before{content:"";position:absolute;width:7px;height:7px;border-radius:50%;top:-4px;left:50%;background:#58d67d;box-shadow:0 0 17px rgba(88,214,125,.8)}
+.logo-orbit-two{width:min(52vw,520px);aspect-ratio:1;border-color:rgba(87,174,221,.07);animation:rackdashOrbitSpin 12s linear reverse infinite}
+.logo-orbit-two::before{content:"";position:absolute;width:5px;height:5px;border-radius:50%;right:-3px;top:50%;background:#76c6ef;box-shadow:0 0 15px rgba(118,198,239,.72)}
+.logo-scanline{position:absolute;z-index:5;left:0;right:0;height:2px;pointer-events:none;opacity:.15;background:linear-gradient(90deg,transparent,#58d67d 25%,#dfffea 50%,#58d67d 75%,transparent);box-shadow:0 0 15px rgba(88,214,125,.34);animation:rackdashScan 5.5s linear infinite}
+.logo-mode #rackdash>:not(.logo-showcase){visibility:hidden}
+@keyframes rackdashHaloSpin{to{transform:rotate(360deg)}}@keyframes rackdashGridDrift{to{background-position:0 54px,54px 0}}@keyframes rackdashLogoFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.012)}}@keyframes rackdashRingPulse{0%,100%{transform:scale(.96);opacity:.45}50%{transform:scale(1.04);opacity:1}}@keyframes rackdashResumePulse{0%,100%{opacity:.35}50%{opacity:.9}}@keyframes rackdashOrbitSpin{to{transform:rotate(360deg)}}@keyframes rackdashScan{0%{top:-3%}100%{top:103%}}
+@media(max-width:720px){.logo-showcase-mark{padding:1.6rem 1rem}.logo-word{letter-spacing:.035em}}
+@media(prefers-reduced-motion:reduce){.plugin-page.active,.logo-showcase::before,.logo-showcase-grid,.logo-showcase-mark,.logo-showcase-mark::before,.logo-showcase-orbit,.logo-sub,.logo-scanline{animation:none!important}}

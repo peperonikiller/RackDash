@@ -64,6 +64,8 @@
   let autoRotate = true;
   let rotateElapsed = 0;
   const lastFetched = new Map();
+  const pluginFetches = new Set();
+  let logoMode = false;
   let serverOffline=false;
   let reconnectTimer=null;
   let reconnectCountdownTimer=null;
@@ -179,12 +181,15 @@
   async function fetchPlugin(id, force=false){
     const meta=pluginById[id];
     if(!meta)return;
+    if(!force && (document.hidden || logoMode))return;
+    if(pluginFetches.has(id))return;
     const now=Date.now();
     const due=(meta.refresh_seconds||10)*1000;
     if(!force && now-(lastFetched.get(id)||0)<due)return;
 
     const root=document.getElementById(`plugin-${id}`);
     const error=root?.querySelector('[data-role="plugin-error"]');
+    pluginFetches.add(id);
     try{
       const response=await fetch(`/api/plugin/${encodeURIComponent(id)}`,{cache:"no-store"});
       if(!response.ok && response.status>=500)throw new TypeError("RackDash server error");
@@ -203,6 +208,8 @@
         error.textContent=err.message||"Plugin unavailable";
         error.hidden=false;
       }
+    }finally{
+      pluginFetches.delete(id);
     }
   }
 
@@ -836,12 +843,13 @@
   }
 
   function scheduleNeighborFetch(){
-    if(pluginIds.length<2)return;
+    if(pluginIds.length<2 || document.hidden || logoMode)return;
     const next=tabPluginIds[(activeIndex+1)%tabPluginIds.length];
     setTimeout(()=>fetchPlugin(next),350);
   }
 
   async function updateSystem(){
+    if(document.hidden)return;
     try{
       const systemResponse=await fetch("/api/system",{cache:"no-store"});
       if(!systemResponse.ok)throw new TypeError("RackDash server error");
@@ -870,7 +878,7 @@
 
   function tick(){
     document.getElementById("clock").textContent=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-    if(!showingHealth && autoRotate && pluginIds.length>1){
+    if(!showingHealth && !logoMode && autoRotate && pluginIds.length>1){
       rotateElapsed++;
       const activeId=tabPluginIds[activeIndex];
       const activeMeta=pluginById[activeId]||{};
@@ -971,14 +979,49 @@
   },{passive:true});
 
 
+  function enterLogoMode(){
+    if(logoMode)return;
+    logoMode=true;
+    rotateElapsed=0;
+    const overlay=document.getElementById("logoShowcase");
+    if(overlay){overlay.hidden=false;overlay.setAttribute("aria-hidden","false");}
+    document.documentElement.classList.add("logo-mode");
+  }
+
+  function exitLogoMode(){
+    if(!logoMode)return;
+    logoMode=false;
+    const overlay=document.getElementById("logoShowcase");
+    if(overlay){overlay.hidden=true;overlay.setAttribute("aria-hidden","true");}
+    document.documentElement.classList.remove("logo-mode");
+    rotateElapsed=0;
+    const id=tabPluginIds[activeIndex];
+    if(id)fetchPlugin(id,true);
+    updateSystem();
+    scheduleNeighborFetch();
+  }
+
+  document.getElementById("rackdashLogoButton")?.addEventListener("click",enterLogoMode);
+  document.getElementById("logoShowcaseMark")?.addEventListener("click",exitLogoMode);
+
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden){
+      updateSystem();
+      const id=tabPluginIds[activeIndex];
+      if(id&&!logoMode)fetchPlugin(id,true);
+    }
+  });
+
   window.addEventListener("keydown",e=>{
+    if(logoMode){
+      if(e.key==="Escape"||e.key==="Enter"||e.key===" ")exitLogoMode();
+      return;
+    }
     if(showingHealth)return;
     if(e.key==="ArrowRight")show(activeIndex+1,true);
     if(e.key==="ArrowLeft")show(activeIndex-1,true);
   });
 
-  window.addEventListener("resize",()=>{
-  
   function applyUiPreferences(){
     const ui=cfg.ui||{};
     document.documentElement.dataset.theme=ui.theme||"dark";
@@ -1002,7 +1045,9 @@
   }
 
   applyUiPreferences();
-  setLayoutClass();
+
+  window.addEventListener("resize",()=>{
+    setLayoutClass();
     const id=tabPluginIds[activeIndex];
     const renderer=window.RackDashPlugins[id];
     if(renderer&&typeof renderer.onResize==="function")renderer.onResize(pages[activeIndex]);
@@ -1013,5 +1058,5 @@
   updateSystem();
   scheduleNeighborFetch();
   setInterval(tick,1000);
-  setInterval(updateSystem,2000);
+  setInterval(updateSystem,3000);
 })();

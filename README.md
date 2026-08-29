@@ -1,8 +1,5 @@
 # RackDash
 
-**Current RackDash version:** `2.6.0`
-
-
 RackDash is a lightweight, plugin-driven dashboard for **rackmount LCDs,
 touchscreen status panels, Raspberry Pis, homelabs, and unusual display
 resolutions**.
@@ -18,8 +15,9 @@ where **every top-level Python file placed in `plugins/` becomes a tab**.
 - Formula 1
 - Klipper / Moonraker 3D printer
 - Bitaxe / AxeOS
-- Serverspy
-- Twitch
+
+Spotify was intentionally removed. RackDash favors unattended integrations
+that do not require frequent interactive reauthorization.
 
 ## Features
 
@@ -529,6 +527,46 @@ https://github.com/peperonikiller/RackDash/tree/main/plugins
 ```
 
 
+## v2.2.1 update-system fixes
+
+Manual RackDash and plugin update checks now bypass the GitHub status cache so a
+release that was published moments ago is visible immediately.
+
+Version comparison now treats equivalent forms such as `2.0`, `v2.0`, and
+`v2.0.0` as the same version instead of incorrectly reporting the longer local
+form as "ahead."
+
+RackDash self-update prefers a RackDash ZIP attached to the GitHub Release. If
+there is no release asset, it now falls back to GitHub's automatic release
+`zipball_url`. This allows a normal GitHub Release with no attached assets to
+still be installed from Admin.
+
+
+## v2.3.0 daily update checks
+
+The **Check RackDash Update** button now lives inside the RackDash Update
+section instead of the Admin header.
+
+RackDash has two optional automatic checks:
+
+- **Daily RackDash Update Check**
+- **Daily Plugin Update Checks**
+
+When enabled, the RackDash service performs the corresponding check at most
+once every 24 hours. Enabling a check for the first time causes the service to
+perform its first check shortly afterward.
+
+Automatic checks only detect updates. They never install RackDash or plugin
+updates automatically.
+
+Update results are saved to `data/update_checks.json`, so the Admin page keeps
+showing the last result after a browser refresh, service restart, or Pi reboot.
+The Admin page also shows whether the last check was automatic or manual and
+when it occurred.
+
+**Check RackDash Update** and **Check All Updates** remain manual controls and
+always perform fresh GitHub checks.
+
 ## Uptime Kuma Plugin
 
 The Uptime Kuma plugin provides a compact homelab/service-health view with
@@ -590,3 +628,48 @@ installation permits Basic Auth for `/metrics`.
 Metrics mode exposes current monitor status and response time. It does not
 provide the same 24-hour uptime and heartbeat history available through the
 published Status Page endpoints.
+
+
+
+## v2.4.1 I2C Admin Hotfix
+
+Fixed the I2C Display dropdown in Admin.
+
+The display controller list was already provided by the RackDash backend, and
+the frontend had a `loadI2C()` function capable of populating the dropdown, but
+that function was never called when the Admin page loaded. As a result, the
+Display selector appeared empty even though RackDash supported SH1106, SH1107,
+SSD1306, SSD1309, SSD1325, and SSD1327 presets.
+
+Admin now loads the I2C controller/size list whenever the Health/Admin page is
+loaded.
+
+
+## RackDash v3.0.0 — Core Reliability
+
+RackDash now isolates plugin startup failures. A malformed or incompatible
+plugin is quarantined instead of preventing the entire dashboard from starting.
+
+Reliability changes include:
+
+- plugin import, validation, and `register_routes()` failures are isolated;
+- failed plugin files are surfaced in Admin under **Quarantined Plugins**;
+- plugin modules are registered in `sys.modules` before execution, matching
+  normal Python import behavior and improving compatibility with decorators and
+  libraries such as `dataclasses`;
+- duplicate `PLUGIN_ID` values are rejected without stopping RackDash;
+- `get_data()` results are validated as dictionaries;
+- plugin presentation state recovers from malformed JSON instead of preventing
+  startup;
+- configuration and plugin-state writes are atomic;
+- installer plugin/source writes use temporary files and atomic replacement;
+- manual hot reload keeps the existing plugin active until replacement code
+  validates successfully;
+- plugins that define Flask routes automatically use a normal RackDash restart
+  rather than an unsafe partial hot reload;
+- plugin loader errors are written to the RackDash rotating log from startup.
+
+
+## RackDash 3
+
+RackDash 3 adds a performance and visual refresh across the dashboard and official plugins. **Fullscreen animated logo mode:** tap or click the RACKDASH wordmark in the upper-left corner; tap the fullscreen logo to resume the dashboard.

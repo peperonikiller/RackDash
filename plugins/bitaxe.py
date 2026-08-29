@@ -9,7 +9,7 @@ import requests
 
 PLUGIN_ID = "bitaxe"
 PLUGIN_NAME = "Bitaxe"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "3.0.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/bitaxe.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -210,10 +210,18 @@ PLUGIN_CSS = r'''
   transform:translateY(-50%);
   opacity:.055;
   pointer-events:none;
-  background:
-    center/contain no-repeat
-    url("https://raw.githubusercontent.com/skot/bitaxe/master/bitaxe_201_logo.png");
-  filter:sepia(1) saturate(1.8) hue-rotate(350deg) brightness(1.45);
+  display:grid;
+  place-items:center;
+  filter:none;
+}
+.plugin-bitaxe .bitaxe-watermark::before{
+  content:"BITAXE";
+  font-size:clamp(3rem,8vw,7rem);
+  font-weight:1000;
+  font-style:italic;
+  letter-spacing:-.07em;
+  color:var(--axe);
+  transform:skew(-8deg);
 }
 .plugin-bitaxe .bitaxe-hero-copy{position:relative;z-index:1;min-width:0}
 .plugin-bitaxe .bitaxe-hero h1{
@@ -585,7 +593,7 @@ def get_data():
         f"{BITAXE_URL}/api/system/info",
         timeout=5,
         headers={
-            "User-Agent": "RackDash-Bitaxe/1.1.0",
+            "User-Agent": "RackDash-\1/3.0.0",
         },
     )
     response.raise_for_status()

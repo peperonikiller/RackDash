@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "1.1.4"
+PLUGIN_VERSION = "3.0.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -929,7 +929,7 @@ def _radar_frame(latitude, longitude, minutes_ago):
 
     # NOAA updates approximately every 5 minutes. Round to a five-minute UTC
     # boundary and keep a five-minute ingestion offset.
-    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    now_ms = int(time.time() * 1000)
     step_ms = 5 * 60 * 1000
     requested_ms = now_ms - ((minutes_ago + 5) * 60 * 1000)
     requested_ms = (requested_ms // step_ms) * step_ms
@@ -966,7 +966,7 @@ def _radar_frame(latitude, longitude, minutes_ago):
         },
         timeout=12,
         headers={
-            "User-Agent": "RackDash-Weather/1.1.2",
+            "User-Agent": "RackDash-\1/3.0.0",
             "Accept": "image/png,image/*;q=0.8,*/*;q=0.2",
         },
     )

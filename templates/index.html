@@ -10,8 +10,19 @@
 </head>
 <body>
 <div id="rackdash">
+  <div class="logo-showcase" id="logoShowcase" hidden aria-hidden="true">
+    <div class="logo-showcase-grid" aria-hidden="true"></div>
+    <div class="logo-showcase-orbit logo-orbit-one" aria-hidden="true"></div>
+    <div class="logo-showcase-orbit logo-orbit-two" aria-hidden="true"></div>
+    <button type="button" class="logo-showcase-mark" id="logoShowcaseMark" aria-label="Return to RackDash">
+      <span class="logo-kicker">SYSTEM DASHBOARD</span>
+      <span class="logo-word">RACK<span>DASH</span></span>
+      <span class="logo-sub">TOUCH TO RESUME</span>
+    </button>
+    <div class="logo-scanline" aria-hidden="true"></div>
+  </div>
   <header class="topbar">
-    <div class="brand">RACK<span>DASH</span></div>
+    <button type="button" class="brand" id="rackdashLogoButton" aria-label="Show RackDash fullscreen logo">RACK<span>DASH</span></button>
     <nav class="tabs" id="tabs" aria-label="Dashboard tabs">
       {% for plugin in plugins %}
       <button

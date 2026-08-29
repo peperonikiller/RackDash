@@ -11,7 +11,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "printer"
 PLUGIN_NAME = "3D Printer"
-PLUGIN_VERSION = "1.1.1"
+PLUGIN_VERSION = "3.0.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/printer.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -416,7 +416,7 @@ def _get(path, params=None, timeout=5, stream=False):
         timeout=timeout,
         stream=stream,
         headers={
-            "User-Agent": "RackDash-Printer/1.1.0",
+            "User-Agent": "RackDash-\1/3.0.0",
         },
     )
 
@@ -909,7 +909,7 @@ def register_routes(app):
                 timeout=15,
                 headers={
                     "User-Agent": (
-                        "RackDash-Printer/1.1.0"
+                        "RackDash-\1/3.0.0"
                     )
                 },
             )
@@ -930,11 +930,14 @@ def register_routes(app):
                 finally:
                     upstream.close()
 
-            return app.response_class(
+            result = app.response_class(
                 generate(),
                 content_type=content_type,
                 direct_passthrough=True,
             )
+            result.headers["Cache-Control"] = "no-store"
+            result.headers["Pragma"] = "no-cache"
+            return result
 
         except Exception:
             app.logger.exception(

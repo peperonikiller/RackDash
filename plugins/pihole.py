@@ -10,7 +10,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "pihole"
 PLUGIN_NAME = "Pi-hole"
-PLUGIN_VERSION = "1.1.1"
+PLUGIN_VERSION = "3.0.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/pihole.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"

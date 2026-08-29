@@ -15,7 +15,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "serverspy"
 PLUGIN_NAME = "ServerSpy"
-PLUGIN_VERSION = "1.2.0"
+PLUGIN_VERSION = "3.0.0"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/serverspy.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -741,7 +741,7 @@ def _fetch_map_image(map_name):
                 url,
                 timeout=MAP_IMAGE_TIMEOUT,
                 headers={
-                    "User-Agent": "RackDash-ServerSpy/1.2.0",
+                    "User-Agent": "RackDash-\1/3.0.0",
                     "Accept": "image/*",
                 },
             )
