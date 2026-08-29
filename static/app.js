@@ -66,6 +66,11 @@
   const lastFetched = new Map();
   const pluginFetches = new Set();
   let logoMode = false;
+  let autoScrollTimer=null;
+  let autoScrollFrame=null;
+  let autoScrollStartedAt=0;
+  let autoScrollLastFrame=0;
+  let autoScrollInterrupted=false;
   let serverOffline=false;
   let reconnectTimer=null;
   let reconnectCountdownTimer=null;
@@ -213,8 +218,105 @@
     }
   }
 
+  function stopAutoScroll(resetInterruption=false){
+    if(autoScrollTimer){
+      clearTimeout(autoScrollTimer);
+      autoScrollTimer=null;
+    }
+    if(autoScrollFrame){
+      cancelAnimationFrame(autoScrollFrame);
+      autoScrollFrame=null;
+    }
+    autoScrollStartedAt=0;
+    autoScrollLastFrame=0;
+    if(resetInterruption)autoScrollInterrupted=false;
+  }
+
+  function scheduleAutoScroll(){
+    stopAutoScroll(true);
+
+    if(showingHealth||logoMode||document.hidden)return;
+
+    const id=tabPluginIds[activeIndex];
+    const meta=pluginById[id]||{};
+    if(meta.auto_scroll!==true)return;
+
+    const page=pages[activeIndex];
+    const scroller=page?.querySelector(".plugin-scroll");
+    if(!scroller)return;
+
+    const maxScroll=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
+    if(maxScroll<8)return;
+
+    // Any deliberate user scroll/touch interaction stops automatic scrolling
+    // until RackDash changes tabs and returns to this plugin.
+    const interrupt=()=>{
+      if(autoScrollTimer||autoScrollFrame){
+        autoScrollInterrupted=true;
+        stopAutoScroll(false);
+      }
+    };
+    scroller.addEventListener("wheel",interrupt,{once:true,passive:true});
+    scroller.addEventListener("touchstart",interrupt,{once:true,passive:true});
+
+    autoScrollTimer=setTimeout(()=>{
+      autoScrollTimer=null;
+      if(autoScrollInterrupted||showingHealth||logoMode||document.hidden)return;
+      if(tabPluginIds[activeIndex]!==id)return;
+
+      const rotateFor=Math.max(
+        3,
+        Number(meta.rotation_seconds||cfg.rotateSeconds||30)
+      );
+      const remaining=Math.max(4,rotateFor-5);
+      const distance=Math.max(0,scroller.scrollHeight-scroller.clientHeight-scroller.scrollTop);
+
+      // Aim to reveal most/all of the page before rotation without racing
+      // through short layouts. Keep speed intentionally gentle.
+      const pixelsPerSecond=Math.max(
+        12,
+        Math.min(42,distance/remaining)
+      );
+
+      autoScrollStartedAt=performance.now();
+      autoScrollLastFrame=autoScrollStartedAt;
+
+      const frame=now=>{
+        if(
+          autoScrollInterrupted||
+          showingHealth||
+          logoMode||
+          document.hidden||
+          tabPluginIds[activeIndex]!==id
+        ){
+          autoScrollFrame=null;
+          return;
+        }
+
+        const dt=Math.min(.05,(now-autoScrollLastFrame)/1000);
+        autoScrollLastFrame=now;
+        const bottom=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
+
+        if(scroller.scrollTop>=bottom-1){
+          scroller.scrollTop=bottom;
+          autoScrollFrame=null;
+          return;
+        }
+
+        scroller.scrollTop=Math.min(
+          bottom,
+          scroller.scrollTop+pixelsPerSecond*dt
+        );
+        autoScrollFrame=requestAnimationFrame(frame);
+      };
+
+      autoScrollFrame=requestAnimationFrame(frame);
+    },5000);
+  }
+
   function show(index, userInitiated=false){
     if(!pages.length)return;
+    stopAutoScroll(true);
     showingHealth=false;
     if(healthRefreshTimer){clearInterval(healthRefreshTimer);healthRefreshTimer=null;}
     healthPage?.classList.remove("active");
@@ -239,6 +341,7 @@
     if(renderer&&typeof renderer.onShow==="function")renderer.onShow(pages[activeIndex]);
 
     rotateElapsed=0;
+    scheduleAutoScroll();
     if(userInitiated)scheduleNeighborFetch();
   }
 
@@ -695,9 +798,10 @@
 
           <div class="plugin-display-controls">
             <label><span>REFRESH</span><input type="number" min="1" data-display-refresh="${RackDash.escape(p.id)}" value="${p.display?.refresh_seconds??p.refresh_seconds??10}"></label>
-            <label><span>ROTATE</span><input type="number" min="3" data-display-duration="${RackDash.escape(p.id)}" value="${p.display?.rotation_seconds??12}"></label>
+            <label><span>ROTATE</span><input type="number" min="3" data-display-duration="${RackDash.escape(p.id)}" value="${p.display?.rotation_seconds??30}"></label>
             <label class="plugin-display-check"><input type="checkbox" data-display-tab="${RackDash.escape(p.id)}" ${p.display?.show_tab!==false?"checked":""}><span>TAB</span></label>
             <label class="plugin-display-check"><input type="checkbox" data-display-auto="${RackDash.escape(p.id)}" ${p.display?.auto_rotate!==false?"checked":""}><span>AUTO</span></label>
+            <label class="plugin-display-check"><input type="checkbox" data-display-scroll="${RackDash.escape(p.id)}" ${p.display?.auto_scroll===true?"checked":""}><span>AUTO SCROLL</span></label>
             <button type="button" data-save-display="${RackDash.escape(p.id)}">SAVE DISPLAY</button>
           </div>
 
@@ -717,9 +821,10 @@
         const id=btn.dataset.saveDisplay;
         const payload={
           refresh_seconds:Number(list.querySelector(`[data-display-refresh="${CSS.escape(id)}"]`)?.value||10),
-          rotation_seconds:Number(list.querySelector(`[data-display-duration="${CSS.escape(id)}"]`)?.value||12),
+          rotation_seconds:Number(list.querySelector(`[data-display-duration="${CSS.escape(id)}"]`)?.value||30),
           show_tab:!!list.querySelector(`[data-display-tab="${CSS.escape(id)}"]`)?.checked,
-          auto_rotate:!!list.querySelector(`[data-display-auto="${CSS.escape(id)}"]`)?.checked
+          auto_rotate:!!list.querySelector(`[data-display-auto="${CSS.escape(id)}"]`)?.checked,
+          auto_scroll:!!list.querySelector(`[data-display-scroll="${CSS.escape(id)}"]`)?.checked
         };
         try{const r=await adminFetch(`/api/admin/plugin/${encodeURIComponent(id)}/display`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const x=await r.json();if(!x.ok)throw new Error(x.error||"Display settings failed");reloadAfterFrontendChange("Applying display settings");}catch(e){alert(e.message);}
       }));
@@ -957,6 +1062,7 @@
   }
 
   async function showHealth(){
+    stopAutoScroll(true);
     showingHealth=true;
     pages.forEach(p=>p.classList.remove("active"));
     tabs.forEach(t=>{
@@ -1014,7 +1120,7 @@
       rotateElapsed++;
       const activeId=tabPluginIds[activeIndex];
       const activeMeta=pluginById[activeId]||{};
-      const rotateFor=Math.max(3,Number(activeMeta.rotation_seconds||cfg.rotateSeconds||12));
+      const rotateFor=Math.max(3,Number(activeMeta.rotation_seconds||cfg.rotateSeconds||30));
       if(rotateElapsed>=rotateFor)show(nextAutoIndex());
     }
   }
@@ -1113,6 +1219,7 @@
 
   function enterLogoMode(){
     if(logoMode)return;
+    stopAutoScroll(true);
     logoMode=true;
     rotateElapsed=0;
     const overlay=document.getElementById("logoShowcase");
@@ -1130,6 +1237,7 @@
     const id=tabPluginIds[activeIndex];
     if(id)fetchPlugin(id,true);
     updateSystem();
+    scheduleAutoScroll();
     scheduleNeighborFetch();
   }
 
@@ -1141,6 +1249,7 @@
       updateSystem();
       const id=tabPluginIds[activeIndex];
       if(id&&!logoMode)fetchPlugin(id,true);
+      if(!logoMode&&!showingHealth)scheduleAutoScroll();
     }
   });
 

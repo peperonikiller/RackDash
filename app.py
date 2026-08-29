@@ -29,14 +29,14 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.0.3"
+APP_VERSION = "3.0.4"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
-ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "12")))
+ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
 CORE_CONFIG = [
     {"key":"RACKDASH_HOST","label":"Listen Host","type":"text","default":"127.0.0.1","help":"Use 0.0.0.0 only if LAN access is intended."},
     {"key":"RACKDASH_PORT","label":"Port","type":"number","default":"8080","min":1,"max":65535},
-    {"key":"ROTATE_SECONDS","label":"Default Rotation Seconds","type":"number","default":"12","min":3,"max":300},
+    {"key":"ROTATE_SECONDS","label":"Default Rotation Seconds","type":"number","default":"30","min":3,"max":300},
     {"key":"RACKDASH_THEME","label":"Theme","type":"select","default":"dark","options":[{"value":"dark","label":"Dark"},{"value":"black","label":"OLED Black"},{"value":"blue","label":"Blue Steel"}]},
     {"key":"RACKDASH_UI_SCALE","label":"UI Scale","type":"number","default":"1.0","min":0.7,"max":1.5,"step":0.05},
     {"key":"RACKDASH_SAFE_AREA","label":"Safe Area / Overscan px","type":"number","default":"0","min":0,"max":80},

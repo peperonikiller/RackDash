@@ -563,3 +563,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
   .plugin-display-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
   .plugin-display-controls button{grid-column:1/-1}
 }
+
+/* RackDash 3.0.4 plugin display controls */
+.plugin-display-controls{
+  align-items:end;
+}
+.plugin-display-controls .plugin-display-check span{
+  white-space:nowrap;
+}

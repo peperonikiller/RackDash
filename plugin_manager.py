@@ -178,6 +178,7 @@ class PluginManager:
             "enabled": bool(row.get("enabled", True)),
             "show_tab": bool(row.get("show_tab", True)),
             "auto_rotate": bool(row.get("auto_rotate", True)),
+            "auto_scroll": bool(row.get("auto_scroll", False)),
             "order": int(row.get("order", plugin.order)),
             "refresh_seconds": max(
                 1,
@@ -185,7 +186,7 @@ class PluginManager:
             ),
             "rotation_seconds": max(
                 3,
-                int(row.get("rotation_seconds", 12)),
+                int(row.get("rotation_seconds", 30)),
             ),
         }
 
@@ -196,7 +197,7 @@ class PluginManager:
 
         row = self._state.setdefault("plugins", {}).setdefault(plugin_id, {})
 
-        for key in ("enabled", "show_tab", "auto_rotate"):
+        for key in ("enabled", "show_tab", "auto_rotate", "auto_scroll"):
             if key in values:
                 row[key] = bool(values[key])
 
@@ -461,6 +462,7 @@ class PluginManager:
                 "refresh_seconds": settings["refresh_seconds"],
                 "rotation_seconds": settings["rotation_seconds"],
                 "auto_rotate": settings["auto_rotate"],
+                "auto_scroll": settings["auto_scroll"],
                 "show_tab": settings["show_tab"],
                 "enabled": settings["enabled"],
                 "accent": plugin.accent,

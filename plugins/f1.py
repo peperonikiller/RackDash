@@ -12,7 +12,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "f1"
 PLUGIN_NAME = "Formula 1"
-PLUGIN_VERSION = "3.0.1"
+PLUGIN_VERSION = "3.0.4"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/f1.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -58,7 +58,7 @@ def _get_json(path: str):
     response = requests.get(
         f"{F1_API}/{path.lstrip('/')}",
         timeout=7,
-        headers={"User-Agent": "RackDash-F1/3.0.1"},
+        headers={"User-Agent": "RackDash-F1/3.0.4"},
     )
     response.raise_for_status()
     return response.json()
@@ -198,7 +198,7 @@ def _headlines():
         response = requests.get(
             F1_NEWS_RSS,
             timeout=7,
-            headers={"User-Agent": "RackDash-F1/3.0.1"},
+            headers={"User-Agent": "RackDash-F1/3.0.4"},
         )
         response.raise_for_status()
         root = ET.fromstring(response.content)
@@ -301,7 +301,7 @@ def _race_day_weather(lat, lon, race_date):
                 "end_date": race_date,
             },
             timeout=7,
-            headers={"User-Agent": "RackDash-F1/3.0.1"},
+            headers={"User-Agent": "RackDash-F1/3.0.4"},
         )
         response.raise_for_status()
         payload = response.json()
@@ -443,7 +443,7 @@ def register_routes(app):
         safe = re.sub(r"[^a-z0-9_-]", "", track.lower())
         url = f"https://raw.githubusercontent.com/MasterPlay007/F1-Track-Layouts-SVG/main/{safe}.svg"
         try:
-            response = requests.get(url, timeout=5, headers={"User-Agent": "RackDash-F1/3.0.1"})
+            response = requests.get(url, timeout=5, headers={"User-Agent": "RackDash-F1/3.0.4"})
             response.raise_for_status()
             return Response(response.content, content_type="image/svg+xml")
         except Exception:
@@ -506,7 +506,13 @@ PLUGIN_HTML = r'''
       <span class="section-label">CIRCUIT</span>
       <span class="track-location" data-role="track-location"></span>
     </div>
-    <div data-role="track" class="track-host"></div>
+    <div class="f1-track-stage">
+      <div class="f1-track-floor"></div>
+      <div class="f1-orbit f1-orbit-a"></div>
+      <div class="f1-orbit f1-orbit-b"></div>
+      <div data-role="track" class="track-host"></div>
+      <div class="f1-scan-beam"></div>
+    </div>
     <div class="track-legend">
       <span><i class="track-glow"></i> RACING LINE</span>
       <span data-role="circuit"></span>
@@ -592,6 +598,189 @@ PLUGIN_CSS = r'''
 @media(max-width:1050px){.plugin-f1 .weather-card{grid-template-columns:1fr 1fr}.plugin-f1 .f1-layout{grid-template-columns:minmax(320px,.9fr) minmax(420px,1.1fr)}.plugin-f1 .f1-copy{grid-template-columns:1fr}.plugin-f1 .f1-session-block{margin-top:.85rem;padding-top:.65rem;border-top:1px solid var(--border)}}
 @media(max-width:720px){.plugin-f1 .f1-layout{grid-template-columns:1fr;grid-template-areas:"race" "track" "drivers" "constructors" "recent" "headlines"}.plugin-f1 .f1-copy{border-left:0;padding-left:0}.plugin-f1 .track-surface{min-height:360px}}
 @media(prefers-reduced-motion:reduce){.plugin-f1 .track-host .rackdash-racing-line{animation:none}.plugin-f1 .track-host::before{animation:none}}
+
+/* RackDash 3.0.4 F1 3D track stage */
+.plugin-f1 .f1-track-stage{
+  position:relative;
+  min-height:380px;
+  width:100%;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  perspective:1100px;
+  isolation:isolate;
+  background:
+    radial-gradient(circle at 50% 44%,rgba(98,213,255,.10),transparent 34%),
+    radial-gradient(circle at 50% 62%,rgba(232,0,45,.055),transparent 50%);
+}
+.plugin-f1 .f1-track-floor{
+  position:absolute;
+  z-index:0;
+  width:82%;
+  height:58%;
+  left:9%;
+  bottom:4%;
+  transform:rotateX(73deg);
+  transform-origin:center bottom;
+  border-radius:50%;
+  border:1px solid rgba(98,213,255,.045);
+  background:
+    radial-gradient(ellipse at center,rgba(98,213,255,.065),rgba(232,0,45,.018) 45%,transparent 73%);
+  animation:f1FloorBreathe 5.6s ease-in-out infinite;
+}
+.plugin-f1 .f1-track-floor::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  background-image:
+    linear-gradient(rgba(98,213,255,.032) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(98,213,255,.032) 1px,transparent 1px);
+  background-size:30px 30px;
+  mask-image:radial-gradient(ellipse at center,#000 0 28%,transparent 72%);
+  animation:f1GridDrift 9s linear infinite;
+}
+.plugin-f1 .f1-track-stage .track-host{
+  z-index:3;
+  width:94%;
+  height:92%;
+  min-height:350px;
+  perspective:1100px;
+}
+.plugin-f1 .f1-track-stage .track-host::before{
+  inset:16% 18%;
+  animation:f1-track-breathe 5s ease-in-out infinite;
+}
+.plugin-f1 .f1-track-stage .track-host svg{
+  width:100%!important;
+  height:100%!important;
+  max-height:72vh;
+  overflow:visible;
+  transform:rotateX(55deg) rotateZ(-2deg) translateY(-2%);
+  transform-origin:center center;
+  filter:
+    drop-shadow(0 30px 18px rgba(0,0,0,.58))
+    drop-shadow(0 0 8px rgba(98,213,255,.12));
+  transition:transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.plugin-f1 .f1-track-stage:hover .track-host svg{
+  transform:rotateX(49deg) rotateZ(-2deg) translateY(-3%) scale(1.015);
+}
+.plugin-f1 .track-host .rackdash-track-shadow{
+  stroke:#000!important;
+  stroke-width:30!important;
+  opacity:.62!important;
+  filter:none!important;
+  transform:translateY(12px);
+}
+.plugin-f1 .track-host .rackdash-track-road{
+  stroke:#14222a!important;
+  stroke-width:22!important;
+  opacity:1!important;
+  filter:none!important;
+}
+.plugin-f1 .track-host .rackdash-track-edge{
+  stroke:#dbe8ee!important;
+  stroke-width:8!important;
+  opacity:.82!important;
+  filter:drop-shadow(0 0 4px rgba(98,213,255,.32))!important;
+}
+.plugin-f1 .track-host .rackdash-racing-line{
+  stroke:#62d5ff!important;
+  stroke-width:3.2!important;
+  stroke-dasharray:13 16!important;
+  opacity:1!important;
+  filter:
+    drop-shadow(0 0 4px rgba(98,213,255,.95))
+    drop-shadow(0 0 11px rgba(98,213,255,.48))!important;
+  animation:f1-dash-flow .95s linear infinite!important;
+}
+.plugin-f1 .track-host .rackdash-tracer{
+  fill:#fff!important;
+  stroke:#62d5ff!important;
+  stroke-width:2!important;
+  filter:
+    drop-shadow(0 0 4px #fff)
+    drop-shadow(0 0 10px #62d5ff)
+    drop-shadow(0 0 18px #62d5ff)!important;
+}
+.plugin-f1 .track-host .rackdash-tracer-halo{
+  fill:rgba(98,213,255,.17)!important;
+  stroke:rgba(98,213,255,.16)!important;
+  stroke-width:1!important;
+  filter:drop-shadow(0 0 13px rgba(98,213,255,.78))!important;
+  animation:f1TracerPulse 1.15s ease-in-out infinite;
+}
+.plugin-f1 .track-host .rackdash-trail-dot{
+  fill:#62d5ff!important;
+  stroke:none!important;
+  filter:drop-shadow(0 0 5px rgba(98,213,255,.8))!important;
+}
+.plugin-f1 .f1-orbit{
+  position:absolute;
+  z-index:1;
+  border-radius:50%;
+  pointer-events:none;
+  border:1px solid rgba(98,213,255,.055);
+}
+.plugin-f1 .f1-orbit::before{
+  content:"";
+  position:absolute;
+  top:-3px;
+  left:50%;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#62d5ff;
+  box-shadow:0 0 13px rgba(98,213,255,.82);
+}
+.plugin-f1 .f1-orbit-a{
+  width:min(70%,430px);
+  aspect-ratio:1;
+  animation:f1OrbitSpin 20s linear infinite;
+}
+.plugin-f1 .f1-orbit-b{
+  width:min(49%,300px);
+  aspect-ratio:1;
+  border-color:rgba(232,0,45,.06);
+  animation:f1OrbitSpin 13s linear reverse infinite;
+}
+.plugin-f1 .f1-orbit-b::before{
+  background:#e8002d;
+  box-shadow:0 0 13px rgba(232,0,45,.72);
+}
+.plugin-f1 .f1-scan-beam{
+  position:absolute;
+  z-index:5;
+  left:10%;
+  right:10%;
+  height:1px;
+  pointer-events:none;
+  opacity:.16;
+  background:linear-gradient(90deg,transparent,#62d5ff 20%,#fff 50%,#62d5ff 80%,transparent);
+  box-shadow:0 0 12px rgba(98,213,255,.45);
+  animation:f1ScanBeam 6.5s linear infinite;
+}
+@keyframes f1GridDrift{to{background-position:0 30px,30px 0}}
+@keyframes f1FloorBreathe{0%,100%{opacity:.55;transform:rotateX(73deg) scale(.96)}50%{opacity:1;transform:rotateX(73deg) scale(1.035)}}
+@keyframes f1OrbitSpin{to{transform:rotate(360deg)}}
+@keyframes f1TracerPulse{0%,100%{opacity:.35;transform:scale(.7)}50%{opacity:1;transform:scale(1.18)}}
+@keyframes f1ScanBeam{0%{top:8%}100%{top:91%}}
+@media(max-width:720px){
+  .plugin-f1 .f1-track-stage{min-height:330px}
+  .plugin-f1 .f1-track-stage .track-host{min-height:310px;width:98%}
+}
+@media(prefers-reduced-motion:reduce){
+  .plugin-f1 .f1-track-floor,
+  .plugin-f1 .f1-track-floor::after,
+  .plugin-f1 .f1-orbit,
+  .plugin-f1 .f1-scan-beam,
+  .plugin-f1 .track-host .rackdash-tracer-halo{animation:none!important}
+  .plugin-f1 .f1-track-stage:hover .track-host svg{
+    transform:rotateX(55deg) rotateZ(-2deg) translateY(-2%);
+  }
+}
+
 '''
 
 PLUGIN_JS = r'''
@@ -604,7 +793,117 @@ window.RackDashPlugins.f1={
   recent(data){if(!data)return {podium:`<div class="empty-state">Recent race results unavailable.</div>`,fastest:""};const podium=(data.podium||[]).map(row=>`<div class="podium-card"><strong>P${RackDash.escape(row.position||"-")} · ${RackDash.escape(row.driver||"")}</strong><small>${RackDash.escape(row.team||"")}</small></div>`).join("");const fastest=data.fastest_lap?`FASTEST LAP · ${RackDash.escape(data.fastest_lap.driver||"")} · LAP ${RackDash.escape(data.fastest_lap.lap||"-")} · ${RackDash.escape(data.fastest_lap.time||"")}${data.fastest_lap.speed?` · ${RackDash.escape(data.fastest_lap.speed)} ${RackDash.escape(data.fastest_lap.speed_units||"")}`:""}`:"";return {podium,fastest}},
   headlines(rows){if(!rows?.length)return `<div class="empty-state">F1 headlines unavailable.</div>`;return rows.map(row=>`<a class="headline-row" href="${RackDash.escape(row.url||"#")}" target="_blank" rel="noopener"><span class="headline-title">${RackDash.escape(row.title||"")}</span><span class="headline-meta">${RackDash.escape(row.source||"")}${row.age_seconds!=null?`<br>${RackDash.escape(this.newsAge(row.age_seconds))}`:""}</span></a>`).join("")},
   weather(data){if(!data||!data.available)return `<div class="weather-unavailable">Race-day forecast is not available yet.</div>`;const high=data.temp_high_f==null?"--":`${Math.round(Number(data.temp_high_f))}°`,low=data.temp_low_f==null?"--":`${Math.round(Number(data.temp_low_f))}°`,rain=data.rain_chance==null?"--":`${Math.round(Number(data.rain_chance))}%`,wind=data.wind_mph==null?"--":`${Math.round(Number(data.wind_mph))} mph`,gust=data.gust_mph==null?"--":`${Math.round(Number(data.gust_mph))} mph`,precip=data.precipitation_in==null?"--":`${Number(data.precipitation_in).toFixed(2)} in`;return `<div class="weather-primary"><div class="weather-condition">${RackDash.escape(data.condition||"Forecast")}</div><div class="weather-temp">${RackDash.escape(high)} <small>HIGH · ${RackDash.escape(low)} LOW</small></div></div><div class="weather-metric"><span>RAIN CHANCE</span><strong>${RackDash.escape(rain)}</strong></div><div class="weather-metric"><span>MAX WIND</span><strong>${RackDash.escape(wind)}</strong></div><div class="weather-metric"><span>GUSTS</span><strong>${RackDash.escape(gust)}</strong></div><div class="weather-note">Expected precipitation: ${RackDash.escape(precip)} · Forecast updates automatically as race day approaches.</div>`},
-  animateTrack(svg){if(!svg||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;const old=this.tracerAnimations.get(svg);if(old)cancelAnimationFrame(old);const candidates=[...svg.querySelectorAll("path")].filter(path=>{try{return path.getTotalLength()>20}catch(e){return false}});if(!candidates.length)return;candidates.sort((a,b)=>{try{return b.getTotalLength()-a.getTotalLength()}catch(e){return 0}});const path=candidates[0],racingLine=path.cloneNode(true);racingLine.removeAttribute("id");racingLine.classList.add("rackdash-racing-line");path.parentNode.appendChild(racingLine);const ns="http://www.w3.org/2000/svg",halo=document.createElementNS(ns,"circle"),tracer=document.createElementNS(ns,"circle");halo.setAttribute("r","10");halo.classList.add("rackdash-tracer-halo");tracer.setAttribute("r","4.2");tracer.classList.add("rackdash-tracer");svg.appendChild(halo);svg.appendChild(tracer);let length=0;try{length=path.getTotalLength()}catch(e){return}const started=performance.now();const frame=now=>{if(!svg.isConnected)return;const distance=(((now-started)/1000)/7.5%1)*length;try{const point=path.getPointAtLength(distance);tracer.setAttribute("cx",point.x);tracer.setAttribute("cy",point.y);halo.setAttribute("cx",point.x);halo.setAttribute("cy",point.y)}catch(e){}const id=requestAnimationFrame(frame);this.tracerAnimations.set(svg,id)};const id=requestAnimationFrame(frame);this.tracerAnimations.set(svg,id)},
+  stopTrack(svg){
+    const animation=this.tracerAnimations.get(svg);
+    if(animation)cancelAnimationFrame(animation);
+    this.tracerAnimations.delete(svg);
+  },
+
+  animateTrack(svg){
+    if(!svg||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+
+    this.stopTrack(svg);
+
+    const page=svg.closest(".plugin-page");
+    if(page&&!page.classList.contains("active"))return;
+
+    const candidates=[...svg.querySelectorAll("path")].filter(path=>{
+      if(path.classList.contains("rackdash-track-shadow"))return false;
+      if(path.classList.contains("rackdash-track-road"))return false;
+      if(path.classList.contains("rackdash-track-edge"))return false;
+      if(path.classList.contains("rackdash-racing-line"))return false;
+      try{return path.getTotalLength()>20}catch(_e){return false}
+    });
+    if(!candidates.length)return;
+
+    candidates.sort((a,b)=>{
+      try{return b.getTotalLength()-a.getTotalLength()}catch(_e){return 0}
+    });
+
+    const source=candidates[0];
+    const parent=source.parentNode;
+    const makeLayer=className=>{
+      const layer=source.cloneNode(true);
+      layer.removeAttribute("id");
+      layer.classList.add(className);
+      return layer;
+    };
+
+    // Hide the original dominant path and rebuild it as stacked layers so
+    // arbitrary external F1 SVGs get the same 3D road treatment.
+    source.style.opacity="0";
+
+    const shadow=makeLayer("rackdash-track-shadow");
+    const road=makeLayer("rackdash-track-road");
+    const edge=makeLayer("rackdash-track-edge");
+    const racing=makeLayer("rackdash-racing-line");
+
+    parent.appendChild(shadow);
+    parent.appendChild(road);
+    parent.appendChild(edge);
+    parent.appendChild(racing);
+
+    const ns="http://www.w3.org/2000/svg";
+    const halo=document.createElementNS(ns,"circle");
+    const tracer=document.createElementNS(ns,"circle");
+    halo.setAttribute("r","11");
+    halo.classList.add("rackdash-tracer-halo");
+    tracer.setAttribute("r","4.4");
+    tracer.classList.add("rackdash-tracer");
+
+    const trail=[0,1,2,3,4].map((_,index)=>{
+      const dot=document.createElementNS(ns,"circle");
+      dot.setAttribute("r",String(Math.max(1.1,2.8-index*.34)));
+      dot.classList.add("rackdash-trail-dot");
+      dot.style.opacity=String(.55-index*.08);
+      svg.appendChild(dot);
+      return dot;
+    });
+
+    svg.appendChild(halo);
+    svg.appendChild(tracer);
+
+    let length=0;
+    try{length=source.getTotalLength()}catch(_e){return}
+    const started=performance.now();
+
+    const frame=now=>{
+      if(!svg.isConnected){
+        this.tracerAnimations.delete(svg);
+        return;
+      }
+      const activePage=svg.closest(".plugin-page");
+      if(document.hidden||(activePage&&!activePage.classList.contains("active"))){
+        this.tracerAnimations.delete(svg);
+        return;
+      }
+
+      const phase=((((now-started)/1000)/6.8)%1);
+      const distance=phase*length;
+
+      try{
+        const point=source.getPointAtLength(distance);
+        tracer.setAttribute("cx",point.x);
+        tracer.setAttribute("cy",point.y);
+        halo.setAttribute("cx",point.x);
+        halo.setAttribute("cy",point.y);
+
+        trail.forEach((dot,index)=>{
+          const behind=(distance-(index+1)*length*.012+length)%length;
+          const p=source.getPointAtLength(behind);
+          dot.setAttribute("cx",p.x);
+          dot.setAttribute("cy",p.y);
+        });
+      }catch(_e){}
+
+      const id=requestAnimationFrame(frame);
+      this.tracerAnimations.set(svg,id);
+    };
+
+    const id=requestAnimationFrame(frame);
+    this.tracerAnimations.set(svg,id);
+  },
+
   async render(data,root){
     root.querySelector('[data-role="drivers"]').innerHTML=this.standings(data.drivers,"driver")||`<div class="empty-state">Driver standings unavailable.</div>`;
     root.querySelector('[data-role="constructors"]').innerHTML=this.standings(data.constructors,"constructor")||`<div class="empty-state">Constructor standings unavailable.</div>`;
@@ -616,7 +915,12 @@ window.RackDashPlugins.f1={
     const weather=root.querySelector('[data-role="race-weather"]');
     if(weather)weather.innerHTML=this.weather(data.race_weather);
     const host=root.querySelector('[data-role="track"]');if(!data.track_key)return;
-    try{const response=await fetch(`/api/plugin/f1/track/${encodeURIComponent(data.track_key)}.svg`);if(!response.ok)return;host.innerHTML=await response.text();const svg=host.querySelector("svg");if(!svg)return;svg.removeAttribute("width");svg.removeAttribute("height");svg.setAttribute("preserveAspectRatio","xMidYMid meet");requestAnimationFrame(()=>{try{const box=(svg.querySelector("g")||svg).getBBox(),pad=Math.max(box.width,box.height)*.035;svg.setAttribute("viewBox",`${box.x-pad} ${box.y-pad} ${box.width+pad*2} ${box.height+pad*2}`)}catch(e){}this.animateTrack(svg)})}catch(e){}
+    try{const response=await fetch(`/api/plugin/f1/track/${encodeURIComponent(data.track_key)}.svg`);if(!response.ok)return;host.innerHTML=await response.text();const svg=host.querySelector("svg");if(!svg)return;svg.removeAttribute("width");svg.removeAttribute("height");svg.setAttribute("preserveAspectRatio","xMidYMid meet");requestAnimationFrame(()=>{try{const box=(svg.querySelector("g")||svg).getBBox(),pad=Math.max(box.width,box.height)*.055;svg.setAttribute("viewBox",`${box.x-pad} ${box.y-pad} ${box.width+pad*2} ${box.height+pad*2}`)}catch(e){}this.animateTrack(svg)})}catch(e){}
+  },
+
+  onShow(root){
+    const svg=root.querySelector('[data-role="track"] svg');
+    if(svg&&!this.tracerAnimations.get(svg))this.animateTrack(svg);
   }
 };
 '''
