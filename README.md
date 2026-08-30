@@ -2,20 +2,6 @@
   <img src="rackdash_logo.png" alt="RackDash" width="100">
 </p>
 
-<h1 align="center">RackDash 3</h1>
-
-<p align="center">
-  A lightweight, plugin-driven dashboard built for rackmount displays, touchscreens, Raspberry Pis, homelabs, and unusual screen sizes.
-</p>
-
-<p align="center">
-  <strong>Responsive.</strong> <strong>Touch-friendly.</strong> <strong>Plugin-first.</strong> <strong>Self-hosted.</strong>
-</p>
-
-<p align="center">
-  <img src="rackdash_logo.png" alt="RackDash" width="100">
-</p>
-
 <h1 align="center">RackDash</h1>
 
 <p align="center">
