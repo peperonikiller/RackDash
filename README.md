@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="rackdash_logo.png" alt="RackDash" width="520">
+  <img src="rackdash_logo.png" alt="RackDash" width="100">
 </p>
 
 <h1 align="center">RackDash 3</h1>
