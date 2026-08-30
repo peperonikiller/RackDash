@@ -31,7 +31,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.1.0"
+APP_VERSION = "3.1.1"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -498,6 +498,7 @@ def api_health_plugin_update(plugin_id: str):
             "plugin": plugin_id,
             "update": row.get("result") or {},
             "checked_at": row.get("checked_at"),
+            "update_attention": update_attention_status(),
         })
 
     return jsonify({
@@ -631,6 +632,7 @@ def api_health_rackdash_update():
             "github_url": RACKDASH_GITHUB,
             "update": row.get("result") or {},
             "checked_at": row.get("checked_at"),
+            "update_attention": update_attention_status(),
         })
 
     return jsonify({
@@ -675,6 +677,7 @@ def api_admin_plugin_updates_check_all():
         "core": core,
         "plugins": plugins_checked,
         "checked_at": int(time.time()),
+        "update_attention": update_attention_status(),
     })
 
 

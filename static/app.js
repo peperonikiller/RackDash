@@ -467,13 +467,13 @@
 
   function renderWLED(s){
     const st=document.getElementById("wledState"); if(!st)return;
-    for(const [id,val] of [["wledEnabled",!!s.enabled],["wledUrl",s.url||"http://wled.local"],["wledSegment",s.segment??0],["wledBrightness",s.brightness??35],["wledStatusSpeed",s.status_speed??96],["wledStatusIntensity",s.status_intensity??128],["wledTransitionMs",s.transition_ms??700],["wledTimeout",s.timeout??3]]){const e=document.getElementById(id);if(e){if(e.type==="checkbox")e.checked=val;else e.value=val;}}
-    document.getElementById("wledBrightnessValue").textContent=`${s.brightness??35}%`; document.getElementById("wledSpeedValue").textContent=s.status_speed??96; document.getElementById("wledIntensityValue").textContent=s.status_intensity??128;
-    const fx=document.getElementById("wledStatusEffect"); if(s.status_effect&&fx){if(![...fx.options].some(o=>o.value===s.status_effect))fx.add(new Option(s.status_effect,s.status_effect));fx.value=s.status_effect;}
+    for(const [id,val] of [["wledEnabled",!!s.enabled],["wledUrl",s.url||"http://wled.local"],["wledSegment",s.segment??0],["wledBrightness",s.brightness??35],["wledBreatheSeconds",s.breathe_seconds??96],["wledBreatheSpread",s.breathe_spread??128],["wledTransitionMs",s.transition_ms??700],["wledTimeout",s.timeout??3]]){const e=document.getElementById(id);if(e){if(e.type==="checkbox")e.checked=val;else e.value=val;}}
+    document.getElementById("wledBrightnessValue").textContent=`${s.brightness??35}%`; document.getElementById("wledSpeedValue").textContent=s.breathe_seconds??96; document.getElementById("wledIntensityValue").textContent=s.breathe_spread??128;
+    const fx=document.getElementById("wledStatusMode"); if(s.status_mode&&fx){if(![...fx.options].some(o=>o.value===s.status_mode))fx.add(new Option(s.status_mode,s.status_mode));fx.value=s.status_mode;}
     st.textContent=!s.enabled?"DISABLED":s.connected?"CONNECTED":"OFFLINE"; st.className=`wled-state ${s.enabled?(s.connected?"online":"error"):""}`;
     const r=document.getElementById("wledRuntime"); if(r)r.innerHTML=[s.device_name&&`DEVICE ${s.device_name}`,s.version&&`WLED ${s.version}`,s.led_count!=null&&`LEDS ${s.led_count}`,s.max_segments!=null&&`MAX SEGMENTS ${s.max_segments}`,s.rssi!=null&&`RSSI ${s.rssi} dBm`,`SOURCE ${s.active_source||"--"}`,`EFFECT ${s.active_effect||"--"}`,s.last_error?`ERROR ${s.last_error}`:"NO ERRORS"].filter(Boolean).map(x=>`<span>${RackDash.escape(x)}</span>`).join("");
   }
-  async function loadWLEDOptions(){const m=document.getElementById("wledMessage");try{const r=await fetch("/api/admin/wled/options",{cache:"no-store"}),d=await r.json();if(!d.ok)throw new Error(d.error||"Could not read WLED");const s=document.getElementById("wledStatusEffect"),v=s.value||"Breathe";s.innerHTML="";(d.effects||[]).filter(x=>x&&x!=="RSVD"&&x!=="-").forEach(x=>s.add(new Option(x,x)));if([...s.options].some(o=>o.value===v))s.value=v;else if([...s.options].some(o=>o.value==="Breathe"))s.value="Breathe";if(m)m.textContent=`Loaded ${d.effects?.length||0} effects and ${d.palettes?.length||0} palettes.`;}catch(e){if(m)m.textContent=e.message;}}
+  async function loadWLEDOptions(){const m=document.getElementById("wledMessage");try{const r=await fetch("/api/admin/wled/options",{cache:"no-store"}),d=await r.json();if(!d.ok)throw new Error(d.error||"Could not read WLED");const s=document.getElementById("wledStatusMode"),v=s.value||"Breathe";s.innerHTML="";(d.effects||[]).filter(x=>x&&x!=="RSVD"&&x!=="-").forEach(x=>s.add(new Option(x,x)));if([...s.options].some(o=>o.value===v))s.value=v;else if([...s.options].some(o=>o.value==="Breathe"))s.value="Breathe";if(m)m.textContent=`Loaded ${d.effects?.length||0} effects and ${d.palettes?.length||0} palettes.`;}catch(e){if(m)m.textContent=e.message;}}
   async function loadWLED(){try{const r=await fetch("/api/admin/wled",{cache:"no-store"}),d=await r.json();if(d.ok){renderWLED(d.status||{});if(d.status?.enabled)loadWLEDOptions();}}catch(_e){}}
 
   let i2cDisplaySpecs={};
@@ -615,10 +615,7 @@
   let adminIssueAttention=false;
 
   function refreshAdminAttention(){
-    const adminButton=document.querySelector('[data-tab="health"]')||
-      [...document.querySelectorAll(".tab-button,.tab")].find(el=>
-        String(el.textContent||"").trim().toUpperCase()==="ADMIN"
-      );
+    const adminButton=document.querySelector('[data-health-tab="true"]')||document.querySelector(".tab-health");
     if(!adminButton)return;
     adminButton.classList.toggle(
       "admin-attention",
@@ -1031,7 +1028,7 @@
         row?.querySelector("[data-release-notes]"),
         u.status==="update_available"?u.release_notes:null
       );
-      if(u.status==="update_available")setAdminUpdateAttention(true);
+      if(data.update_attention)setAdminUpdateAttention(!!data.update_attention.available);else if(result.update_attention)setAdminUpdateAttention(!!result.update_attention.available);else if(u.status==="update_available")setAdminUpdateAttention(true);
       refreshHealthUpdateCount();
     }catch(e){
       if(status){status.textContent="Check failed";status.className="health-update-status error";}
@@ -1362,9 +1359,10 @@
   tabs.forEach((tab,i)=>tab.addEventListener("click",()=>show(i,true)));
   healthTab?.addEventListener("click",()=>showHealth());
   document.getElementById("wledBrightness")?.addEventListener("input",e=>document.getElementById("wledBrightnessValue").textContent=`${e.currentTarget.value}%`);
-  document.getElementById("wledStatusSpeed")?.addEventListener("input",e=>document.getElementById("wledSpeedValue").textContent=e.currentTarget.value);
-  document.getElementById("wledStatusIntensity")?.addEventListener("input",e=>document.getElementById("wledIntensityValue").textContent=e.currentTarget.value);
-  document.getElementById("wledSave")?.addEventListener("click",async()=>{const m=document.getElementById("wledMessage");m.textContent="Saving...";const q={enabled:document.getElementById("wledEnabled").checked,url:document.getElementById("wledUrl").value,segment:document.getElementById("wledSegment").value,brightness:document.getElementById("wledBrightness").value,status_effect:document.getElementById("wledStatusEffect").value,status_speed:document.getElementById("wledStatusSpeed").value,status_intensity:document.getElementById("wledStatusIntensity").value,transition_ms:document.getElementById("wledTransitionMs").value,timeout:document.getElementById("wledTimeout").value};try{const r=await adminFetch("/api/admin/wled",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(q)}),d=await r.json();if(!d.ok)throw new Error(d.error||"Save failed");renderWLED(d.status);m.textContent=d.status.connected?"WLED connected.":"Saved, but WLED is unreachable.";if(d.status.connected)await loadWLEDOptions();}catch(e){m.textContent=e.message;}});
+  document.getElementById("wledBreatheSeconds")?.addEventListener("input",e=>document.getElementById("wledSpeedValue").textContent=e.currentTarget.value);
+  document.getElementById("wledBreatheSpread")?.addEventListener("input",e=>document.getElementById("wledIntensityValue").textContent=e.currentTarget.value);
+  document.getElementById("wledSave")?.addEventListener("click",async()=>{const m=document.getElementById("wledMessage");m.textContent="Saving...";const q={enabled:document.getElementById("wledEnabled").checked,url:document.getElementById("wledUrl").value,segment:document.getElementById("wledSegment").value,brightness:document.getElementById("wledBrightness").value,status_mode:document.getElementById("wledStatusMode").value,breathe_seconds:document.getElementById("wledBreatheSeconds").value,breathe_spread:document.getElementById("wledBreatheSpread").value,
+      breathe_floor:document.getElementById("wledBreatheFloor").value,transition_ms:document.getElementById("wledTransitionMs").value,timeout:document.getElementById("wledTimeout").value};try{const r=await adminFetch("/api/admin/wled",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(q)}),d=await r.json();if(!d.ok)throw new Error(d.error||"Save failed");renderWLED(d.status);m.textContent=d.status.connected?"WLED connected.":"Saved, but WLED is unreachable.";if(d.status.connected)await loadWLEDOptions();}catch(e){m.textContent=e.message;}});
   document.getElementById("wledRefresh")?.addEventListener("click",async()=>{await loadWLED();await loadWLEDOptions();});
   document.getElementById("wledTest")?.addEventListener("click",async()=>{const m=document.getElementById("wledMessage");m.textContent="Testing...";try{const r=await adminFetch("/api/admin/wled/test",{method:"POST"}),d=await r.json();if(!d.ok)throw new Error(d.error||"Test failed");renderWLED(d.status);m.textContent="8-second status-color test running.";}catch(e){m.textContent=e.message;}});
 
