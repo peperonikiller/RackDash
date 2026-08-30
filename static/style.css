@@ -36,6 +36,7 @@ button,input{font:inherit}
   position:relative;
   display:grid;
   place-items:center;
+  justify-self:start;
   overflow:visible;
   border:0;
   background:transparent;
@@ -149,6 +150,10 @@ button,input{font:inherit}
 /* Ten-minute state: stop decorative motion and reclaim header space. */
 .brand.logo-compact{
   width:2.65rem;
+  min-width:2.65rem;
+  justify-self:start;
+  margin-left:0;
+  margin-right:0;
   animation:none!important;
   filter:none;
 }
@@ -164,6 +169,7 @@ button,input{font:inherit}
 }
 .brand.logo-compact .brand-compact{
   opacity:1;
+  justify-self:start;
   transform:scale(1) rotateX(0);
 }
 .brand.logo-compact .brand-rack,
@@ -844,3 +850,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 }
 
 /* Leave breathing/floor/racing-line animation, remove scanner/orbit decoration. */
+
+
+/* RackDash 3.0.9 compact-logo alignment safeguard */
+.brand.logo-compact{
+  align-self:center;
+  text-align:left;
+}
+.brand.logo-compact .brand-full,
+.brand.logo-compact .brand-compact{
+  width:auto;
+}
