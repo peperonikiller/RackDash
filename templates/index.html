@@ -161,6 +161,73 @@
 
         <section class="admin-section" id="adminDisplay">
           <div class="admin-section-title"><div><span class="eyebrow">DISPLAY & HARDWARE</span><h2>Presentation and auxiliary display</h2></div></div>
+          <section class="surface admin-argb-panel">
+            <div class="admin-section-head">
+              <div>
+                <div class="section-label">ADDRESSABLE RGB LIGHTING</div>
+                <div class="muted">Control WS2812B / SK6812 / NeoPixel-compatible LEDs. Failures override the strip red, available updates override it orange, and plugins can request effects without changing global brightness.</div>
+              </div>
+              <div class="argb-state" id="argbState">NOT CONFIGURED</div>
+            </div>
+
+            <div class="argb-config-grid">
+              <label class="argb-toggle">
+                <input type="checkbox" id="argbEnabled">
+                <span>ENABLE ARGB</span>
+              </label>
+
+              <label>
+                <span>DRIVER</span>
+                <select id="argbDriver">
+                  <option value="spi">SPI / NEOPIXEL</option>
+                </select>
+              </label>
+
+              <label>
+                <span>LED COUNT</span>
+                <input id="argbLedCount" type="number" value="30" min="1" max="1000">
+              </label>
+
+              <label>
+                <span>COLOR ORDER</span>
+                <select id="argbColorOrder">
+                  <option value="GRB">GRB</option>
+                  <option value="RGB">RGB</option>
+                  <option value="BRG">BRG</option>
+                  <option value="BGR">BGR</option>
+                  <option value="RGBW">RGBW</option>
+                  <option value="GRBW">GRBW</option>
+                </select>
+              </label>
+
+              <label class="argb-brightness-control">
+                <span>BRIGHTNESS <strong id="argbBrightnessValue">35%</strong></span>
+                <input id="argbBrightness" type="range" value="35" min="0" max="100" step="1">
+              </label>
+
+              <label>
+                <span>BREATHE CYCLE</span>
+                <input id="argbBreatheSeconds" type="number" value="4" min="1" max="20" step=".25">
+                <small>seconds</small>
+              </label>
+            </div>
+
+            <div class="argb-status-key">
+              <span><i style="--status-color:#58d67d"></i> IDLE · RACKDASH GREEN</span>
+              <span><i style="--status-color:#ff9f43"></i> UPDATE AVAILABLE</span>
+              <span><i style="--status-color:#ff4757"></i> FAILURE DETECTED</span>
+              <span><i style="--status-color:#9146ff"></i> PLUGIN CONTROL</span>
+            </div>
+
+            <div class="argb-actions">
+              <button type="button" id="argbSave">SAVE / CONNECT</button>
+              <button type="button" id="argbTest">TEST STRIP</button>
+              <span id="argbMessage" class="muted"></span>
+            </div>
+
+            <div class="argb-runtime" id="argbRuntime"></div>
+          </section>
+
           <section class="surface admin-i2c-panel">
             <div class="admin-section-head">
               <div><div class="section-label">I2C DISPLAY</div><div class="muted">Drive a small OLED from RackDash for system status, plugin output, or a static monochrome icon.</div></div>

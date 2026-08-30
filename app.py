@@ -25,12 +25,13 @@ from core_updater import CoreUpdater
 from admin_diagnostics import diagnostics, tail_file
 from official_plugin_updater import OfficialPluginUpdater
 from update_monitor import UpdateMonitor
+from rgb_lighting import ARGBLightingManager, ARGB_CONFIG
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.0.9"
+APP_VERSION = "3.1.0"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -80,7 +81,7 @@ app.logger.addHandler(_file_handler)
 app.logger.setLevel(logging.INFO)
 
 backup_manager = BackupManager(BASE_DIR)
-ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
+ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("ARGB Lighting", ARGB_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
 load_dotenv(BASE_DIR / "config.env", override=True)
 plugins = PluginManager(app=app, plugin_dir=BASE_DIR / "plugins", state_file=BASE_DIR / "data" / "plugin_state.json")
 plugins.load_all()
@@ -349,6 +350,31 @@ i2c_manager = I2CDisplayManager(
 i2c_manager.start()
 
 
+def _argb_system_state():
+    """
+    Core lighting status has precedence over plugin lighting:
+    failures -> red, updates -> orange, then plugin/default behavior.
+    """
+    plugin_failed = bool(plugins.failures()) or any(
+        plugins.is_enabled(plugin.id) and bool(plugin.last_error)
+        for plugin in plugins._plugins
+    )
+    update_state = update_attention_status()
+    return {
+        "failure": plugin_failed,
+        "update": bool(update_state.get("available")),
+    }
+
+
+argb_manager = ARGBLightingManager(
+    BASE_DIR / "config.env",
+    plugin_provider=plugins.argb_requests,
+    system_state_provider=_argb_system_state,
+    logger=app.logger,
+)
+argb_manager.start()
+
+
 @app.get("/")
 def index():
     response = make_response(render_template(
@@ -443,6 +469,7 @@ def api_health():
         "backups": backup_manager.list()[:10],
         "updates": update_monitor.status(),
         "i2c": i2c_manager.status(),
+        "argb": argb_manager.status(),
         "plugins": rows,
         "plugin_failures": plugins.failures(),
         "app": {
@@ -666,6 +693,42 @@ def api_admin_plugins_order():
             "ok": True,
             "order": order,
             "reload_required": True,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 200
+
+
+@app.get("/api/admin/argb")
+def api_admin_argb():
+    return jsonify({
+        "ok": True,
+        "status": argb_manager.status(),
+    })
+
+
+@app.post("/api/admin/argb")
+def api_admin_argb_save():
+    if not _require_admin():
+        return _admin_denied()
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify({
+            "ok": True,
+            "status": argb_manager.save_settings(payload),
+        })
+    except Exception as exc:
+        app.logger.exception("ARGB settings save failed")
+        return jsonify({"ok": False, "error": str(exc)}), 200
+
+
+@app.post("/api/admin/argb/test")
+def api_admin_argb_test():
+    if not _require_admin():
+        return _admin_denied()
+    try:
+        return jsonify({
+            "ok": True,
+            "status": argb_manager.test(),
         })
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 200

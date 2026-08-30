@@ -218,6 +218,67 @@ unconfigured plugin. Runtime health metrics are collected automatically around
 `get_data()`; plugin authors do not need to implement timing or error tracking.
 
 
+
+## Addressable RGB / ARGB plugin output
+
+RackDash 3.1 adds a shared addressable-RGB lighting controller for
+WS2812B / SK6812 / NeoPixel-compatible strips.
+
+A plugin can request lighting by implementing:
+
+```python
+def get_argb_data():
+    return {
+        "effect": "breathe",
+        "color": "#9146ff",
+        "speed": 3.0,
+        "priority": 50,
+    }
+```
+
+Declare the capability:
+
+```python
+PLUGIN_CAPABILITIES = ["network", "argb"]
+```
+
+Return `None` or `{}` whenever the plugin does not want lighting control.
+
+Supported effects:
+
+| Effect | Fields | Behavior |
+| --- | --- | --- |
+| `solid` | `color` | All LEDs use one color |
+| `breathe` | `color`, `speed` | Smooth brightness breathing |
+| `pulse` | `color`, `speed` | Repeating status pulse |
+| `chase` | `color`, `secondary`, `speed` | Moving highlight across the strip |
+| `rainbow` | `speed` | Animated full-strip rainbow |
+| `pixels` | `pixels` | Direct per-LED `#RRGGBB` values |
+
+Optional `priority` ranges from `0` to `100` and defaults to `50`. If multiple
+enabled plugins request ARGB control, the highest priority wins. Ties follow
+the configured plugin order.
+
+### Brightness ownership
+
+Plugins **cannot control strip brightness**. Any returned `brightness` or
+`global_brightness` field is discarded by RackDash. Brightness always comes
+from the user's Admin setting so a plugin cannot unexpectedly drive the strip
+at full power.
+
+### Core status priority
+
+RackDash core status overrides plugin lighting:
+
+1. A detected plugin/import/runtime failure breathes **red** (`#ff4757`).
+2. An available RackDash/plugin update breathes **orange** (`#ff9f43`).
+3. Otherwise the highest-priority plugin ARGB request is used.
+4. If no plugin requests control, RackDash breathes its logo green
+   (`#58d67d`).
+
+ARGB hook exceptions are isolated and logged. They do not make the plugin's
+normal `get_data()` request fail.
+
 ## Optional I2C display output
 
 When the administrator selects **System + Plugins**, RackDash looks for an
@@ -273,6 +334,7 @@ Common capability declarations include:
 
 - `network`
 - `i2c`
+- `argb`
 - `custom_routes`
 
 Capabilities are informational permission declarations shown to the user before

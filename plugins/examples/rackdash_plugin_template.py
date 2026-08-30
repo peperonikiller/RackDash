@@ -26,8 +26,9 @@ PLUGIN_MAX_RACKDASH = ""
 # Common capabilities:
 #   network
 #   i2c
+#   argb
 #   custom_routes
-PLUGIN_CAPABILITIES = ["network", "i2c"]
+PLUGIN_CAPABILITIES = ["network", "i2c", "argb"]
 
 PLUGIN_GITHUB = ""
 PLUGIN_ORDER = 100
@@ -524,3 +525,67 @@ def get_i2c_data():
             f"Up {int(data.get('uptime',0)) // 3600}h",
         ],
     }
+
+# ============================================================
+# Optional RackDash ARGB Lighting Hook
+# ============================================================
+#
+# Add "argb" to PLUGIN_CAPABILITIES when using this hook.
+#
+# RackDash calls get_argb_data() in the background. Return None or {} when the
+# plugin does not want control. When multiple plugins request lighting, the
+# highest priority wins; ties follow plugin order.
+#
+# IMPORTANT:
+#   Plugins cannot control global brightness. RackDash deliberately ignores
+#   "brightness" and "global_brightness" keys. The user always owns brightness
+#   from Admin -> Display & Hardware.
+#
+# Core RackDash status also has higher priority than plugins:
+#   failure detected -> red breathe
+#   update available -> orange breathe
+#   plugin request   -> plugin effect
+#   no plugin hook   -> RackDash green breathe
+#
+# Supported effects:
+#   solid
+#   breathe
+#   pulse
+#   chase
+#   rainbow
+#   pixels
+#
+# Colors use #RRGGBB strings.
+#
+# Example:
+#
+# def get_argb_data():
+#     try:
+#         data = get_data()
+#     except Exception:
+#         return None
+#
+#     if str(data.get("status", "")).lower() != "online":
+#         return None
+#
+#     return {
+#         "effect": "chase",
+#         "color": "#6fb7ff",
+#         "secondary": "#081117",
+#         "speed": 2.5,
+#         "priority": 50,
+#     }
+#
+# For direct per-pixel control:
+#
+# def get_argb_data():
+#     return {
+#         "effect": "pixels",
+#         "pixels": [
+#             "#ff0000",
+#             "#00ff00",
+#             "#0000ff",
+#         ],
+#         "priority": 60,
+#     }
+

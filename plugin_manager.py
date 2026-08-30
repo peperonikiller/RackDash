@@ -551,6 +551,52 @@ class PluginManager:
 
         return rows
 
+    def argb_requests(self):
+        """
+        Collect optional get_argb_data() requests from enabled plugins.
+
+        ARGB hooks are deliberately isolated from get_data() health. A lighting
+        hook failure is logged but does not mark the plugin itself unhealthy.
+        The core ARGB manager arbitrates requests and strips brightness fields.
+        """
+        rows = []
+        for plugin in self._plugins:
+            if not self.is_enabled(plugin.id):
+                continue
+
+            hook = getattr(plugin.module, "get_argb_data", None)
+            if not callable(hook):
+                continue
+
+            try:
+                request = hook()
+                if request is None:
+                    continue
+                if not isinstance(request, dict):
+                    raise TypeError(
+                        f"{plugin.id}.get_argb_data() returned "
+                        f"{type(request).__name__}; expected dict or None"
+                    )
+                if not request:
+                    continue
+                rows.append({
+                    "id": plugin.id,
+                    "name": plugin.name,
+                    "order": self._settings(plugin)["order"],
+                    "request": request,
+                })
+            except Exception as exc:
+                try:
+                    self.app.logger.warning(
+                        "Plugin %s ARGB hook failed: %s",
+                        plugin.id,
+                        exc,
+                    )
+                except Exception:
+                    pass
+        return rows
+
+
     def combined_css(self):
         return "\n".join(
             plugin.css

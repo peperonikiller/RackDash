@@ -465,6 +465,50 @@
   }
 
 
+  function renderARGB(status){
+    const state=document.getElementById("argbState");
+    if(!state)return;
+
+    document.getElementById("argbEnabled").checked=!!status.enabled;
+    document.getElementById("argbDriver").value=status.driver||"spi";
+    document.getElementById("argbLedCount").value=status.led_count??30;
+    document.getElementById("argbColorOrder").value=status.color_order||"GRB";
+    document.getElementById("argbBrightness").value=status.brightness??35;
+    document.getElementById("argbBrightnessValue").textContent=`${status.brightness??35}%`;
+    document.getElementById("argbBreatheSeconds").value=status.breathe_seconds??4;
+
+    if(!status.enabled){
+      state.textContent="DISABLED";
+      state.className="argb-state";
+    }else if(status.connected){
+      state.textContent="CONNECTED";
+      state.className="argb-state online";
+    }else{
+      state.textContent="ERROR";
+      state.className="argb-state error";
+    }
+
+    const runtime=document.getElementById("argbRuntime");
+    if(runtime){
+      runtime.innerHTML=[
+        `SOURCE ${status.active_source||"--"}`,
+        `EFFECT ${status.active_effect||"--"}`,
+        `COLOR ${status.active_color||"--"}`,
+        `LEDS ${status.led_count||"--"}`,
+        status.last_error?`ERROR ${status.last_error}`:"NO ERRORS"
+      ].map(x=>`<span>${RackDash.escape(x)}</span>`).join("");
+    }
+  }
+
+  async function loadARGB(){
+    try{
+      const r=await fetch("/api/admin/argb",{cache:"no-store"});
+      const data=await r.json();
+      if(data.ok)renderARGB(data.status||{});
+    }catch(_e){}
+  }
+
+
   let i2cDisplaySpecs={};
 
   function renderI2C(status){
@@ -995,6 +1039,7 @@
       renderI2C(data.i2c||{});renderAdminSecurity(data.admin_auth||{});
       renderPersistedUpdates(data);
       markPluginDisplayDirty(false);
+      await loadARGB();
       if(!Object.keys(i2cDisplaySpecs).length)await loadI2C();
     }catch(e){
       healthPage.querySelector('[data-health="status"]').textContent="ERROR";
@@ -1349,6 +1394,53 @@
 
   tabs.forEach((tab,i)=>tab.addEventListener("click",()=>show(i,true)));
   healthTab?.addEventListener("click",()=>showHealth());
+  document.getElementById("argbBrightness")?.addEventListener("input",event=>{
+    const label=document.getElementById("argbBrightnessValue");
+    if(label)label.textContent=`${event.currentTarget.value}%`;
+  });
+
+  document.getElementById("argbSave")?.addEventListener("click",async()=>{
+    const message=document.getElementById("argbMessage");
+    message.textContent="Saving...";
+    const payload={
+      enabled:document.getElementById("argbEnabled").checked,
+      driver:document.getElementById("argbDriver").value,
+      led_count:document.getElementById("argbLedCount").value,
+      color_order:document.getElementById("argbColorOrder").value,
+      brightness:document.getElementById("argbBrightness").value,
+      breathe_seconds:document.getElementById("argbBreatheSeconds").value
+    };
+    try{
+      const r=await adminFetch("/api/admin/argb",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
+      });
+      const x=await r.json();
+      if(!x.ok)throw new Error(x.error||"Save failed");
+      renderARGB(x.status);
+      message.textContent=x.status.connected
+        ?"ARGB lighting connected."
+        :"Settings saved. Check SPI, dependencies, strip power, and wiring.";
+    }catch(e){
+      message.textContent=e.message;
+    }
+  });
+
+  document.getElementById("argbTest")?.addEventListener("click",async()=>{
+    const message=document.getElementById("argbMessage");
+    message.textContent="Running 5 second rainbow test...";
+    try{
+      const r=await adminFetch("/api/admin/argb/test",{method:"POST"});
+      const x=await r.json();
+      if(!x.ok)throw new Error(x.error||"Test failed");
+      renderARGB(x.status);
+      message.textContent="Test running.";
+    }catch(e){
+      message.textContent=e.message;
+    }
+  });
+
   document.getElementById("i2cDisplay")?.addEventListener("change",updateI2CIconLimit);
   document.getElementById("i2cMode")?.addEventListener("change",updateI2CIconLimit);
 
