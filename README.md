@@ -12,6 +12,36 @@
   <strong>Responsive.</strong> <strong>Touch-friendly.</strong> <strong>Plugin-first.</strong> <strong>Self-hosted.</strong>
 </p>
 
+<p align="center">
+  <img src="rackdash_logo.png" alt="RackDash" width="100">
+</p>
+
+<h1 align="center">RackDash</h1>
+
+<p align="center">
+  A lightweight, plugin-driven dashboard built for rackmount displays, touchscreens, Raspberry Pis, homelabs, and unusual screen sizes.
+</p>
+
+<p align="center">
+  <strong>Responsive.</strong> <strong>Touch-friendly.</strong> <strong>Plugin-first.</strong> <strong>Self-hosted.</strong>
+</p>
+
+<h2 align="center">Community</h2>
+
+<p align="center">
+  Join the RackDash community on Discord for help, development discussion, plugin ideas, screenshots, STL files, and updates.
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/fcb6snRbtr">
+    <img src="https://img.shields.io/badge/Discord-Join%20the%20RackDash%20Community-5865F2?logo=discord&logoColor=white" alt="Join the RackDash Discord">
+  </a>
+</p>
+
+---
+
+## Features
+
 ---
 
 ## Features
