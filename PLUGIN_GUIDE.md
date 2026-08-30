@@ -219,65 +219,27 @@ unconfigured plugin. Runtime health metrics are collected automatically around
 
 
 
-## Addressable RGB / ARGB plugin output
+## WLED lighting plugin output
 
-RackDash 3.1 adds a shared addressable-RGB lighting controller for
-WS2812B / SK6812 / NeoPixel-compatible strips.
-
-A plugin can request lighting by implementing:
+Plugins can request WLED state through `get_wled_data()` and should declare `"wled"` in `PLUGIN_CAPABILITIES`. Return `None` or `{}` when not requesting control.
 
 ```python
-def get_argb_data():
+def get_wled_data():
     return {
-        "effect": "breathe",
+        "effect": "Breathe",
+        "palette": "Party",
         "color": "#9146ff",
-        "speed": 3.0,
+        "speed": 120,
+        "intensity": 160,
         "priority": 50,
     }
 ```
 
-Declare the capability:
+Core priority is failure red, update orange, plugin request, then idle RackDash green. Plugin priority is 0-100; ties follow plugin order.
 
-```python
-PLUGIN_CAPABILITIES = ["network", "argb"]
-```
+Plugins may use WLED effect/palette names or IDs, up to three colors, speed, intensity, target segment, transition, presets, playlists, reverse/mirror and 2D transforms, custom sliders `c1/c2/c3`, custom toggles `option1/2/3`, direct `pixels`, and `on`.
 
-Return `None` or `{}` whenever the plugin does not want lighting control.
-
-Supported effects:
-
-| Effect | Fields | Behavior |
-| --- | --- | --- |
-| `solid` | `color` | All LEDs use one color |
-| `breathe` | `color`, `speed` | Smooth brightness breathing |
-| `pulse` | `color`, `speed` | Repeating status pulse |
-| `chase` | `color`, `secondary`, `speed` | Moving highlight across the strip |
-| `rainbow` | `speed` | Animated full-strip rainbow |
-| `pixels` | `pixels` | Direct per-LED `#RRGGBB` values |
-
-Optional `priority` ranges from `0` to `100` and defaults to `50`. If multiple
-enabled plugins request ARGB control, the highest priority wins. Ties follow
-the configured plugin order.
-
-### Brightness ownership
-
-Plugins **cannot control strip brightness**. Any returned `brightness` or
-`global_brightness` field is discarded by RackDash. Brightness always comes
-from the user's Admin setting so a plugin cannot unexpectedly drive the strip
-at full power.
-
-### Core status priority
-
-RackDash core status overrides plugin lighting:
-
-1. A detected plugin/import/runtime failure breathes **red** (`#ff4757`).
-2. An available RackDash/plugin update breathes **orange** (`#ff9f43`).
-3. Otherwise the highest-priority plugin ARGB request is used.
-4. If no plugin requests control, RackDash breathes its logo green
-   (`#58d67d`).
-
-ARGB hook exceptions are isolated and logged. They do not make the plugin's
-normal `get_data()` request fail.
+Plugins cannot set brightness: `brightness`, `bri`, and `global_brightness` are removed. The Admin brightness slider always wins.
 
 ## Optional I2C display output
 
@@ -334,7 +296,7 @@ Common capability declarations include:
 
 - `network`
 - `i2c`
-- `argb`
+- `wled`
 - `custom_routes`
 
 Capabilities are informational permission declarations shown to the user before

@@ -25,7 +25,7 @@ from core_updater import CoreUpdater
 from admin_diagnostics import diagnostics, tail_file
 from official_plugin_updater import OfficialPluginUpdater
 from update_monitor import UpdateMonitor
-from rgb_lighting import ARGBLightingManager, ARGB_CONFIG
+from wled_lighting import WLEDLightingManager, WLED_CONFIG
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
@@ -81,7 +81,7 @@ app.logger.addHandler(_file_handler)
 app.logger.setLevel(logging.INFO)
 
 backup_manager = BackupManager(BASE_DIR)
-ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("ARGB Lighting", ARGB_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
+ensure_defaults(BASE_DIR / "config.env", [("RackDash", CORE_CONFIG), ("WLED Lighting", WLED_CONFIG), ("I2C Display", I2C_CONFIG), *discover_config_schemas(BASE_DIR / "plugins")])
 load_dotenv(BASE_DIR / "config.env", override=True)
 plugins = PluginManager(app=app, plugin_dir=BASE_DIR / "plugins", state_file=BASE_DIR / "data" / "plugin_state.json")
 plugins.load_all()
@@ -350,7 +350,7 @@ i2c_manager = I2CDisplayManager(
 i2c_manager.start()
 
 
-def _argb_system_state():
+def _wled_system_state():
     """
     Core lighting status has precedence over plugin lighting:
     failures -> red, updates -> orange, then plugin/default behavior.
@@ -366,13 +366,13 @@ def _argb_system_state():
     }
 
 
-argb_manager = ARGBLightingManager(
+wled_manager = WLEDLightingManager(
     BASE_DIR / "config.env",
-    plugin_provider=plugins.argb_requests,
-    system_state_provider=_argb_system_state,
+    plugin_provider=plugins.wled_requests,
+    system_state_provider=_wled_system_state,
     logger=app.logger,
 )
-argb_manager.start()
+wled_manager.start()
 
 
 @app.get("/")
@@ -469,7 +469,7 @@ def api_health():
         "backups": backup_manager.list()[:10],
         "updates": update_monitor.status(),
         "i2c": i2c_manager.status(),
-        "argb": argb_manager.status(),
+        "wled": wled_manager.status(),
         "plugins": rows,
         "plugin_failures": plugins.failures(),
         "app": {
@@ -698,38 +698,46 @@ def api_admin_plugins_order():
         return jsonify({"ok": False, "error": str(exc)}), 200
 
 
-@app.get("/api/admin/argb")
-def api_admin_argb():
+@app.get("/api/admin/wled")
+def api_admin_wled():
     return jsonify({
         "ok": True,
-        "status": argb_manager.status(),
+        "status": wled_manager.status(),
     })
 
 
-@app.post("/api/admin/argb")
-def api_admin_argb_save():
+@app.post("/api/admin/wled")
+def api_admin_wled_save():
     if not _require_admin():
         return _admin_denied()
     payload = request.get_json(silent=True) or {}
     try:
         return jsonify({
             "ok": True,
-            "status": argb_manager.save_settings(payload),
+            "status": wled_manager.save_settings(payload),
         })
     except Exception as exc:
-        app.logger.exception("ARGB settings save failed")
+        app.logger.exception("WLED settings save failed")
         return jsonify({"ok": False, "error": str(exc)}), 200
 
 
-@app.post("/api/admin/argb/test")
-def api_admin_argb_test():
+@app.post("/api/admin/wled/test")
+def api_admin_wled_test():
     if not _require_admin():
         return _admin_denied()
     try:
         return jsonify({
             "ok": True,
-            "status": argb_manager.test(),
+            "status": wled_manager.test(),
         })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 200
+
+
+@app.get("/api/admin/wled/options")
+def api_admin_wled_options():
+    try:
+        return jsonify({"ok": True, **wled_manager.device_options()})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 200
 

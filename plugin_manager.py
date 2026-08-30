@@ -551,11 +551,11 @@ class PluginManager:
 
         return rows
 
-    def argb_requests(self):
+    def wled_requests(self):
         """
-        Collect optional get_argb_data() requests from enabled plugins.
+        Collect optional get_wled_data() requests from enabled plugins.
 
-        ARGB hooks are deliberately isolated from get_data() health. A lighting
+        WLED hooks are deliberately isolated from get_data() health. A lighting
         hook failure is logged but does not mark the plugin itself unhealthy.
         The core ARGB manager arbitrates requests and strips brightness fields.
         """
@@ -564,7 +564,7 @@ class PluginManager:
             if not self.is_enabled(plugin.id):
                 continue
 
-            hook = getattr(plugin.module, "get_argb_data", None)
+            hook = getattr(plugin.module, "get_wled_data", None)
             if not callable(hook):
                 continue
 
@@ -574,7 +574,7 @@ class PluginManager:
                     continue
                 if not isinstance(request, dict):
                     raise TypeError(
-                        f"{plugin.id}.get_argb_data() returned "
+                        f"{plugin.id}.get_wled_data() returned "
                         f"{type(request).__name__}; expected dict or None"
                     )
                 if not request:
@@ -588,7 +588,7 @@ class PluginManager:
             except Exception as exc:
                 try:
                     self.app.logger.warning(
-                        "Plugin %s ARGB hook failed: %s",
+                        "Plugin %s WLED hook failed: %s",
                         plugin.id,
                         exc,
                     )

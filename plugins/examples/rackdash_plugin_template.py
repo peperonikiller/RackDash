@@ -26,9 +26,9 @@ PLUGIN_MAX_RACKDASH = ""
 # Common capabilities:
 #   network
 #   i2c
-#   argb
+#   wled
 #   custom_routes
-PLUGIN_CAPABILITIES = ["network", "i2c", "argb"]
+PLUGIN_CAPABILITIES = ["network", "i2c", "wled"]
 
 PLUGIN_GITHUB = ""
 PLUGIN_ORDER = 100
@@ -526,66 +526,21 @@ def get_i2c_data():
         ],
     }
 
-# ============================================================
-# Optional RackDash ARGB Lighting Hook
-# ============================================================
-#
-# Add "argb" to PLUGIN_CAPABILITIES when using this hook.
-#
-# RackDash calls get_argb_data() in the background. Return None or {} when the
-# plugin does not want control. When multiple plugins request lighting, the
-# highest priority wins; ties follow plugin order.
-#
-# IMPORTANT:
-#   Plugins cannot control global brightness. RackDash deliberately ignores
-#   "brightness" and "global_brightness" keys. The user always owns brightness
-#   from Admin -> Display & Hardware.
-#
-# Core RackDash status also has higher priority than plugins:
-#   failure detected -> red breathe
-#   update available -> orange breathe
-#   plugin request   -> plugin effect
-#   no plugin hook   -> RackDash green breathe
-#
-# Supported effects:
-#   solid
-#   breathe
-#   pulse
-#   chase
-#   rainbow
-#   pixels
-#
-# Colors use #RRGGBB strings.
-#
-# Example:
-#
-# def get_argb_data():
-#     try:
-#         data = get_data()
-#     except Exception:
-#         return None
-#
-#     if str(data.get("status", "")).lower() != "online":
-#         return None
-#
-#     return {
-#         "effect": "chase",
-#         "color": "#6fb7ff",
-#         "secondary": "#081117",
-#         "speed": 2.5,
-#         "priority": 50,
-#     }
-#
-# For direct per-pixel control:
-#
-# def get_argb_data():
-#     return {
-#         "effect": "pixels",
-#         "pixels": [
-#             "#ff0000",
-#             "#00ff00",
-#             "#0000ff",
-#         ],
-#         "priority": 60,
-#     }
 
+# ============================================================
+# Optional RackDash WLED Lighting Hook
+# ============================================================
+# Add "wled" to PLUGIN_CAPABILITIES. Return None/{} when idle.
+# Core failure/update states override plugins. Brightness is Admin-only.
+#
+# def get_wled_data():
+#     return {
+#         "effect": "Chase", "palette": "Party",
+#         "color": "#6fb7ff", "secondary": "#081117",
+#         "speed": 140, "intensity": 180, "priority": 50,
+#         "transition_ms": 500,
+#     }
+#
+# Other supported fields: segment, preset, playlist, colors, tertiary,
+# reverse, mirror, reverse_y, mirror_y, transpose, c1/c2/c3,
+# option1/option2/option3, pixels, and on.

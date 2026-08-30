@@ -161,71 +161,22 @@
 
         <section class="admin-section" id="adminDisplay">
           <div class="admin-section-title"><div><span class="eyebrow">DISPLAY & HARDWARE</span><h2>Presentation and auxiliary display</h2></div></div>
-          <section class="surface admin-argb-panel">
-            <div class="admin-section-head">
-              <div>
-                <div class="section-label">ADDRESSABLE RGB LIGHTING</div>
-                <div class="muted">Control WS2812B / SK6812 / NeoPixel-compatible LEDs. Failures override the strip red, available updates override it orange, and plugins can request effects without changing global brightness.</div>
-              </div>
-              <div class="argb-state" id="argbState">NOT CONFIGURED</div>
+          <section class="surface admin-wled-panel">
+            <div class="admin-section-head"><div><div class="section-label">WLED LIGHTING</div><div class="muted">Connect RackDash to a WLED device on your network. Healthy systems breathe green, updates breathe orange, and failures breathe red.</div></div><div class="wled-state" id="wledState">NOT CONFIGURED</div></div>
+            <div class="wled-config-grid">
+              <label><input type="checkbox" id="wledEnabled"><span>ENABLE WLED</span></label>
+              <label class="wled-url"><span>DEVICE URL</span><input id="wledUrl" type="text" value="http://wled.local" placeholder="http://192.168.1.50"></label>
+              <label><span>SEGMENT</span><input id="wledSegment" type="number" value="0" min="0" max="31"></label>
+              <label><span>BRIGHTNESS <strong id="wledBrightnessValue">35%</strong></span><input id="wledBrightness" type="range" value="35" min="0" max="100"></label>
+              <label><span>STATUS EFFECT</span><select id="wledStatusEffect"><option value="Breathe">Breathe</option></select></label>
+              <label><span>SPEED <strong id="wledSpeedValue">96</strong></span><input id="wledStatusSpeed" type="range" value="96" min="0" max="255"></label>
+              <label><span>INTENSITY <strong id="wledIntensityValue">128</strong></span><input id="wledStatusIntensity" type="range" value="128" min="0" max="255"></label>
+              <label><span>TRANSITION</span><input id="wledTransitionMs" type="number" value="700" min="0" max="65000" step="100"><small>ms</small></label>
+              <label><span>TIMEOUT</span><input id="wledTimeout" type="number" value="3" min=".5" max="15" step=".5"><small>seconds</small></label>
             </div>
-
-            <div class="argb-config-grid">
-              <label class="argb-toggle">
-                <input type="checkbox" id="argbEnabled">
-                <span>ENABLE ARGB</span>
-              </label>
-
-              <label>
-                <span>DRIVER</span>
-                <select id="argbDriver">
-                  <option value="spi">SPI / NEOPIXEL</option>
-                </select>
-              </label>
-
-              <label>
-                <span>LED COUNT</span>
-                <input id="argbLedCount" type="number" value="30" min="1" max="1000">
-              </label>
-
-              <label>
-                <span>COLOR ORDER</span>
-                <select id="argbColorOrder">
-                  <option value="GRB">GRB</option>
-                  <option value="RGB">RGB</option>
-                  <option value="BRG">BRG</option>
-                  <option value="BGR">BGR</option>
-                  <option value="RGBW">RGBW</option>
-                  <option value="GRBW">GRBW</option>
-                </select>
-              </label>
-
-              <label class="argb-brightness-control">
-                <span>BRIGHTNESS <strong id="argbBrightnessValue">35%</strong></span>
-                <input id="argbBrightness" type="range" value="35" min="0" max="100" step="1">
-              </label>
-
-              <label>
-                <span>BREATHE CYCLE</span>
-                <input id="argbBreatheSeconds" type="number" value="4" min="1" max="20" step=".25">
-                <small>seconds</small>
-              </label>
-            </div>
-
-            <div class="argb-status-key">
-              <span><i style="--status-color:#58d67d"></i> IDLE · RACKDASH GREEN</span>
-              <span><i style="--status-color:#ff9f43"></i> UPDATE AVAILABLE</span>
-              <span><i style="--status-color:#ff4757"></i> FAILURE DETECTED</span>
-              <span><i style="--status-color:#9146ff"></i> PLUGIN CONTROL</span>
-            </div>
-
-            <div class="argb-actions">
-              <button type="button" id="argbSave">SAVE / CONNECT</button>
-              <button type="button" id="argbTest">TEST STRIP</button>
-              <span id="argbMessage" class="muted"></span>
-            </div>
-
-            <div class="argb-runtime" id="argbRuntime"></div>
+            <div class="wled-status-key"><span><i style="--status-color:#58d67d"></i> OK</span><span><i style="--status-color:#ff9f43"></i> UPDATE</span><span><i style="--status-color:#ff4757"></i> FAILURE</span><span><i style="--status-color:#9146ff"></i> PLUGIN</span></div>
+            <div class="wled-actions"><button type="button" id="wledSave">SAVE / CONNECT</button><button type="button" id="wledRefresh">REFRESH DEVICE</button><button type="button" id="wledTest">TEST STATUS COLORS</button><span id="wledMessage" class="muted"></span></div>
+            <div class="wled-runtime" id="wledRuntime"></div>
           </section>
 
           <section class="surface admin-i2c-panel">
