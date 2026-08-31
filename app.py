@@ -31,7 +31,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.1.4"
+APP_VERSION = "3.1.5"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -363,16 +363,24 @@ i2c_manager.start()
 
 def _wled_system_state():
     """
-    Core lighting status has precedence over plugin lighting:
-    failures -> red, updates -> orange, then plugin/default behavior.
+    WLED status priority:
+      failure on an ENABLED plugin -> red
+      update available             -> orange
+      otherwise                    -> healthy green
+
+    Disabled plugins are explicitly ignored. RackDash also does not treat
+    historical/quarantine entries for disabled plugins as active failures.
     """
-    plugin_failed = bool(plugins.failures()) or any(
-        plugins.is_enabled(plugin.id) and bool(plugin.last_error)
-        for plugin in plugins._plugins
-    )
+    enabled_failures = []
+    for plugin in plugins._plugins:
+        if not plugins.is_enabled(plugin.id):
+            continue
+        if bool(plugin.last_error):
+            enabled_failures.append(plugin.id)
+
     update_state = update_attention_status()
     return {
-        "failure": plugin_failed,
+        "failure": bool(enabled_failures),
         "update": bool(update_state.get("available")),
     }
 

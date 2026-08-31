@@ -14,7 +14,14 @@ WLED_CONFIG=[
  {"key":"WLED_URL","label":"WLED Device URL","type":"text","default":"http://wled.local","help":"Example: http://192.168.1.50 or http://wled.local"},
  {"key":"WLED_SEGMENT","label":"RackDash Segment","type":"number","default":"0","min":0,"max":31},
  {"key":"WLED_BRIGHTNESS","label":"Brightness","type":"number","default":"35","min":0,"max":100,"step":1},
- {"key":"WLED_STATUS_MODE","label":"Status Animation","type":"select","default":"center_breathe","options":[{"value":"center_breathe","label":"Centered Breathe"},{"value":"solid","label":"Solid"}]},
+ {"key":"WLED_STATUS_MODE","label":"Status Animation","type":"select","default":"center_breathe","options":[
+  {"value":"center_breathe","label":"Centered Breathe"},
+  {"value":"solid","label":"Solid"},
+  {"value":"pulse","label":"Pulse"},
+  {"value":"scanner","label":"Scanner"},
+  {"value":"center_pulse","label":"Center Pulse"},
+  {"value":"twinkle","label":"Soft Twinkle"}
+ ]},
  {"key":"WLED_BREATHE_SECONDS","label":"Breathe Cycle","type":"number","default":"4.0","min":1,"max":20,"step":0.25},
  {"key":"WLED_BREATHE_SPREAD","label":"Center Spread","type":"number","default":"65","min":10,"max":100,"step":1},
  {"key":"WLED_BREATHE_FLOOR","label":"Edge Glow","type":"number","default":"8","min":0,"max":40,"step":1},
@@ -37,7 +44,7 @@ class WLEDLightingManager:
  def __init__(self,config_path:Path,plugin_provider:Callable|None=None,system_state_provider:Callable|None=None,logger=None,session=None):
   self.config_path=Path(config_path);self.plugin_provider=plugin_provider or (lambda:[]);self.system_state_provider=system_state_provider or (lambda:{})
   self.logger=logger;self.session=session or requests.Session();self._stop=threading.Event();self._thread=None
-  self._connected=False;self._last_error="";self._last_success=0.;self._info={};self._state={};self._effects=[];self._palettes=[];self._fxdata=[];self._checked=0.
+  self._connected=False;self._last_error="";self._last_success=0.;self._info={};self._state={};self._effects=[];self._palettes=[];self._checked=0.
   self._last_key="";self._last_sent=0.;self._active_source="disabled";self._active_effect="off";self._active_color="#000000";self._test_until=0.
  def _cfg(self):
   e=parse_env(self.config_path)
@@ -55,11 +62,6 @@ class WLEDLightingManager:
   n=time.monotonic()
   if not force and n-self._checked<60:return
   x=self._request("GET","/json");self._info=dict(x.get("info") or {});self._state=dict(x.get("state") or {});self._effects=list(x.get("effects") or []);self._palettes=list(x.get("palettes") or [])
-  try:
-   meta=self._request("GET","/json/fxdata")
-   self._fxdata=list(meta) if isinstance(meta,list) else []
-  except Exception:
-   self._fxdata=[]
   self._checked=n;self._connected=True;self._last_error="";self._last_success=time.time()
  def _geometry(self,segid):
   rows=self._state.get("seg") or [];s=next((x for x in rows if isinstance(x,dict) and int(x.get("id",-1))==segid),{})
@@ -69,37 +71,6 @@ class WLEDLightingManager:
    total=int((self._info.get("leds") or {}).get("count") or 0);stop=total if total>start else start+1
   stop=max(start+1,int(stop));count=stop-start;center=(count-1)/2
   return {"start":start,"stop":stop,"count":count,"center":center,"center_left":math.floor(center),"center_right":math.ceil(center)}
- def _parse_fx_meta(self,index):
-  raw=self._fxdata[index] if 0<=index<len(self._fxdata) else ""
-  parts=str(raw or "").split(";")
-  while len(parts)<5:parts.append("")
-  params,colors,palette,flags,defaults=parts[:5]
-  flags=flags or "1"
-  parsed_defaults={}
-  for token in defaults.split(","):
-   if "=" not in token:continue
-   k,v=token.split("=",1)
-   try:parsed_defaults[k.strip()]=int(v.strip())
-   except:continue
-  return {"raw":raw,"params":params,"colors":colors,"palette":palette,"flags":flags,"defaults":parsed_defaults}
-
- def compatible_effects(self):
-  c=self._cfg();g=self._geometry(c["segment"]) if self._info else {"count":int((self._info.get("leds") or {}).get("count") or 0)}
-  count=max(0,int(g.get("count") or 0));out=[]
-  for index,name in enumerate(self._effects):
-   name=str(name or "").strip()
-   if not name or name in {"RSVD","-"}:continue
-   meta=self._parse_fx_meta(index);flags=meta["flags"]
-   # A normal RackDash WLED strip is 1D. Exclude effects that require 2D/3D
-   # unless the metadata explicitly says they also support 1D.
-   one_d=("1" in flags) or ("2" not in flags and "3" not in flags)
-   if not one_d:continue
-   # On a single LED, WLED metadata flag 0 specifically marks suitable FX.
-   # Always keep Solid as a safe fallback.
-   if count==1 and "0" not in flags and name.lower()!="solid":continue
-   out.append({"id":index,"name":name,"flags":flags,"defaults":meta["defaults"]})
-  return out
-
  def _plugin(self):
   out=[]
   try:rows=self.plugin_provider() or []
@@ -144,24 +115,47 @@ class WLEDLightingManager:
   if state.get("rackdash_core"):
    g=self._geometry(int(state.get("segment",c["segment"])));seg={"id":int(state.get("segment",c["segment"])),"on":bool(state.get("on",True)),"fx":0,"pal":0}
    mode=str(state.get("mode") or "center_breathe")
+   color=state.get("color",LOGO_GREEN)
    if mode=="solid":
-    seg["col"]=[_rgb(state.get("color",LOGO_GREEN))]
-   elif mode.startswith("wled:"):
-    try:fxid=int(mode.split(":",1)[1])
-    except:fxid=0
-    compatible={row["id"]:row for row in self.compatible_effects()}
-    if fxid not in compatible:fxid=0
-    seg["fx"]=fxid
-    seg["pal"]=0
-    seg["col"]=[_rgb(state.get("color",LOGO_GREEN)),[0,0,0],[0,0,0]]
-    defaults=(compatible.get(fxid) or {}).get("defaults") or {}
-    for key in ("sx","ix","c1","c2","c3"):
-     if key in defaults:seg[key]=defaults[key]
-    for key in ("o1","o2","o3"):
-     if key in defaults:seg[key]=bool(defaults[key])
+    seg["col"]=[_rgb(color)]
    else:
-    seg["i"]=self._breathe_pixels(state.get("color",LOGO_GREEN),g["count"],now,c)
-   return {"on":True,"bri":round(c["brightness"]*255/100),"tt":0 if mode=="center_breathe" else round(c["transition_ms"]/100),"v":False,"seg":[seg]}
+    count=g["count"]
+    if mode=="pulse":
+     phase=(now%c["breathe_seconds"])/c["breathe_seconds"]
+     strength=.18+.82*((math.sin(phase*math.tau-math.pi/2)+1)/2)
+     rgb=[round(x*strength) for x in _rgb(color)]
+     seg["i"]=[_hex(rgb)]*count
+    elif mode=="scanner":
+     pos=(now/max(.15,c["breathe_seconds"]/3))%2
+     pos=pos if pos<=1 else 2-pos
+     head=pos*(count-1)
+     base=_rgb(color);pixels=[]
+     for i in range(count):
+      d=abs(i-head)
+      strength=max(0.03,math.exp(-(d*d)/6.0))
+      pixels.append(_hex([round(x*strength) for x in base]))
+     seg["i"]=pixels
+    elif mode=="center_pulse":
+     center=(count-1)/2;phase=(now%c["breathe_seconds"])/c["breathe_seconds"];radius=(math.sin(phase*math.pi)**2)*max(1,count/2)
+     base=_rgb(color);pixels=[]
+     for i in range(count):
+      d=abs(i-center)
+      strength=max(0.02,math.exp(-((d-radius)**2)/4.0))
+      pixels.append(_hex([round(x*strength) for x in base]))
+     seg["i"]=pixels
+    elif mode=="twinkle":
+     # deterministic soft twinkle so we don't need WLED FX/palettes
+     base=_rgb(color);pixels=[]
+     tick=int(now*8)
+     for i in range(count):
+      seed=((i*1103515245)+(tick*12345))&0x7fffffff
+      sparkle=.08+((seed%100)/100.0)*.28
+      if seed%17==0:sparkle=.85
+      pixels.append(_hex([round(x*sparkle) for x in base]))
+     seg["i"]=pixels
+    else:
+     seg["i"]=self._breathe_pixels(color,count,now,c)
+   return {"on":True,"bri":round(c["brightness"]*255/100),"tt":0,"v":False,"seg":[seg]}
   p={"on":bool(state.get("on",True)),"bri":round(c["brightness"]*255/100),"tt":round(float(state.get("transition_ms",c["transition_ms"]))/100),"v":False}
   if state.get("preset") is not None:p["ps"]=int(_clamp(float(state["preset"]),1,250));return p
   if isinstance(state.get("playlist"),dict):p["playlist"]=dict(state["playlist"])
@@ -178,7 +172,7 @@ class WLEDLightingManager:
   if isinstance(state.get("pixels"),list):seg["i"]=[_hex(x) for x in state["pixels"]]
   p["seg"]=[seg];return p
  def _send(self,state,c,force=False):
-  now=time.monotonic();p=self._payload(state,c,now);key=json.dumps(p,sort_keys=True,separators=(",",":"));animated=bool(state.get("rackdash_core") and str(state.get("mode") or "center_breathe")=="center_breathe")
+  now=time.monotonic();p=self._payload(state,c,now);key=json.dumps(p,sort_keys=True,separators=(",",":"));animated=bool(state.get("rackdash_core") and str(state.get("mode") or "center_breathe")!="solid")
   if animated and now-self._last_sent<1/self.CORE_FPS:return
   if not animated and not force and key==self._last_key and now-self._last_sent<60:return
   self._request("POST","/json/state",p);self._last_key=key;self._last_sent=now;self._connected=True;self._last_error="";self._last_success=time.time()
@@ -188,12 +182,15 @@ class WLEDLightingManager:
    if not c["enabled"]:self._connected=False;self._active_source="disabled";self._stop.wait(1);continue
    try:
     self.refresh_device();s=self._resolve_state(c,time.monotonic());self._active_source=s.get("source","unknown");self._active_color=s.get("color","#000000");mode=str(s.get("mode") or "")
-    if s.get("rackdash_core") and mode=="center_breathe":self._active_effect="Centered Breathe"
-    elif s.get("rackdash_core") and mode=="solid":self._active_effect="Solid"
-    elif s.get("rackdash_core") and mode.startswith("wled:"):
-     try:
-      fxid=int(mode.split(":",1)[1]);self._active_effect=self._effects[fxid] if 0<=fxid<len(self._effects) else "Solid"
-     except:self._active_effect="Solid"
+    if s.get("rackdash_core"):
+     self._active_effect={
+      "center_breathe":"Centered Breathe",
+      "solid":"Solid",
+      "pulse":"Pulse",
+      "scanner":"Scanner",
+      "center_pulse":"Center Pulse",
+      "twinkle":"Soft Twinkle",
+     }.get(mode,"Centered Breathe")
     else:self._active_effect=str(s.get("effect") or ("Preset" if s.get("preset") else "Solid"))
     self._send(s,c,self._active_source=="admin-test")
    except Exception as exc:self._connected=False;self._last_error=str(exc)[:300]
@@ -214,7 +211,7 @@ class WLEDLightingManager:
   self.refresh_device(True);self._test_until=time.monotonic()+10;return self.status()
  def device_options(self):
   if self._cfg()["enabled"]:self.refresh_device(True)
-  return {"effects":self._effects,"compatible_effects":self.compatible_effects(),"palettes":self._palettes,"info":self._info,"state":self._state,"geometry":self._geometry(self._cfg()["segment"])}
+  return {"effects":self._effects,"palettes":self._palettes,"info":self._info,"state":self._state,"geometry":self._geometry(self._cfg()["segment"])}
  def status(self):
   c=self._cfg();leds=self._info.get("leds") or {};wifi=self._info.get("wifi") or {};g=self._geometry(c["segment"]) if self._info else {}
   return {**c,"connected":self._connected,"last_error":self._last_error,"last_success":self._last_success,"active_source":self._active_source,"active_effect":self._active_effect,"active_color":self._active_color,"device_name":self._info.get("name") or self._info.get("brand") or "","version":self._info.get("ver") or "","led_count":leds.get("count"),"max_segments":leds.get("maxseg"),"rssi":wifi.get("rssi"),"effect_count":len(self._effects),"palette_count":len(self._palettes),"segment_count":g.get("count"),"segment_start":g.get("start"),"segment_stop":g.get("stop"),"center":g.get("center"),"center_left":g.get("center_left"),"center_right":g.get("center_right")}

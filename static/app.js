@@ -516,65 +516,11 @@
     }
   }
 
-  function populateWLEDModeOptions(status,compatibleEffects){
-    const select=document.getElementById("wledStatusMode");
-    if(!select)return;
-    const current=String(status?.status_mode||select.value||"center_breathe");
-    select.innerHTML="";
-
-    const rackdashGroup=document.createElement("optgroup");
-    rackdashGroup.label="RackDash";
-    rackdashGroup.appendChild(new Option("Centered Breathe","center_breathe"));
-    rackdashGroup.appendChild(new Option("Solid Status","solid"));
-    select.appendChild(rackdashGroup);
-
-    const effects=Array.isArray(compatibleEffects)?compatibleEffects:[];
-    if(effects.length){
-      const wledGroup=document.createElement("optgroup");
-      wledGroup.label=`WLED Effects (${effects.length})`;
-      effects.forEach(effect=>{
-        const option=new Option(effect.name,`wled:${effect.id}`);
-        option.dataset.flags=effect.flags||"";
-        wledGroup.appendChild(option);
-      });
-      select.appendChild(wledGroup);
-    }
-
-    if([...select.options].some(option=>option.value===current)){
-      select.value=current;
-    }else{
-      select.value="center_breathe";
-    }
-  }
-
-  async function refreshWLEDEffectModes(status=null){
-    try{
-      const response=await fetch("/api/admin/wled/options",{cache:"no-store"});
-      const data=await response.json();
-      if(!data.ok)throw new Error(data.error||"Unable to read WLED effects");
-      const currentStatus=status||{};
-      populateWLEDModeOptions(currentStatus,data.compatible_effects||[]);
-      const message=document.getElementById("wledMessage");
-      const count=Number(data.geometry?.count||0);
-      if(message&&currentStatus.enabled){
-        message.textContent=`Loaded ${(data.compatible_effects||[]).length} compatible WLED effects for ${count||"the configured"} LEDs.`;
-      }
-      return data;
-    }catch(error){
-      const message=document.getElementById("wledMessage");
-      if(message)message.textContent=`WLED effects unavailable: ${error.message}`;
-      return null;
-    }
-  }
-
   async function loadWLED(){
     try{
       const response=await fetch("/api/admin/wled",{cache:"no-store"});
       const data=await response.json();
-      if(data.ok){
-        renderWLED(data.status||{});
-        if(data.status?.enabled)await refreshWLEDEffectModes(data.status||{});
-      }
+      if(data.ok)renderWLED(data.status||{});
     }catch(_e){}
   }
 
@@ -1498,7 +1444,6 @@
     const result=await response.json();
     if(!result.ok)throw new Error(result.error||"Unable to save WLED settings");
     renderWLED(result.status||{});
-    if(result.status?.enabled)await refreshWLEDEffectModes(result.status||{});
     markWLEDSettingsDirty(false);
     if(showMessage&&message)message.textContent=result.status?.connected?"WLED settings saved.":"WLED settings saved; device is offline.";
     return result;
