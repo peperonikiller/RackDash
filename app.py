@@ -31,7 +31,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.1.1"
+APP_VERSION = "3.1.4"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -272,6 +272,17 @@ def _version_key(value: str):
     return tuple((parts + [0, 0, 0])[:3])
 
 
+_manual_update_attention_sources = set()
+
+def _row_has_update(result, current_version):
+    return isinstance(result, dict) and result.get("status") == "update_available" and _version_key(result.get("latest")) > _version_key(current_version)
+
+def _set_manual_update_source(source, active):
+    if active:
+        _manual_update_attention_sources.add(source)
+    else:
+        _manual_update_attention_sources.discard(source)
+
 def update_attention_status() -> dict:
     """
     Read persisted update-monitor state only. This never contacts GitHub, so it
@@ -303,8 +314,8 @@ def update_attention_status() -> dict:
             count += 1
 
     return {
-        "available": count > 0,
-        "count": count,
+        "available": (count + len(_manual_update_attention_sources)) > 0,
+        "count": max(count, len(_manual_update_attention_sources)),
         "checked_at": max(
             int((core or {}).get("checked_at") or 0),
             int(status.get("plugin_batch_checked_at") or 0),
@@ -493,6 +504,7 @@ def api_health_plugin_update(plugin_id: str):
 
     row = update_monitor.check_plugin(plugin, automatic=False)
     if row.get("ok"):
+        _set_manual_update_source(f"plugin:{plugin.id}", _row_has_update(row.get("result") or {}, plugin.plugin_version))
         return jsonify({
             "ok": True,
             "plugin": plugin_id,
@@ -626,6 +638,8 @@ def api_health_plugin_test(plugin_id: str):
 def api_health_rackdash_update():
     row = update_monitor.check_core(automatic=False)
     if row.get("ok"):
+        _set_manual_update_source("core", _row_has_update(row.get("result") or {}, APP_VERSION))
+    if row.get("ok"):
         return jsonify({
             "ok": True,
             "current": APP_VERSION,
@@ -671,6 +685,15 @@ def api_admin_plugin_updates_check_all():
 
     core = update_monitor.check_core(automatic=False)
     plugins_checked = update_monitor.check_plugins(automatic=False)
+
+    _manual_update_attention_sources.clear()
+    if core.get("ok") and _row_has_update(core.get("result") or {}, APP_VERSION):
+        _manual_update_attention_sources.add("core")
+    plugin_results = (plugins_checked.get("plugins") or {}) if isinstance(plugins_checked, dict) else {}
+    for plugin in plugins._plugins:
+        row = plugin_results.get(plugin.id) or {}
+        if row.get("ok") and _row_has_update(row.get("result") or {}, plugin.plugin_version):
+            _manual_update_attention_sources.add(f"plugin:{plugin.id}")
 
     return jsonify({
         "ok": True,

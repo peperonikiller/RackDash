@@ -337,3 +337,5 @@ continue using a standalone GitHub repository plus `rackdash-plugin.json`.
 RackDash checks official plugin versions by reading their exact source file
 from the RackDash `main` branch. It does not compare official plugin versions
 against the RackDash application's GitHub release version.
+
+RackDash also discovers WLED effect metadata from `/json/fxdata` and only exposes effects compatible with the configured 1D segment. Unsupported/reserved and 2D-only effects are hidden from the Admin Mode list.
