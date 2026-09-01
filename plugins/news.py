@@ -15,7 +15,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "news"
 PLUGIN_NAME = "News"
-PLUGIN_VERSION = "1.0.1"
+PLUGIN_VERSION = "1.0.2"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/news.py"
 PLUGIN_MIN_RACKDASH = "3.0.0"
@@ -127,7 +127,7 @@ def _parse_feed(xml_bytes, base_url):
             "summary": _strip_html(raw_summary,420) if show_summary else "",
             "link": _link_from_node(node,base_url),
             "image": _image_from_node(node,base_url,raw_summary) if show_images else "",
-            "author": _strip_html(_first_text(node,["author","creator"]),100),
+            "author": _strip_html(_first_text(node,["author","creator","source"]),100),
             "published": _parse_timestamp(_first_text(node,["pubdate","published","updated","date"])),
         })
         if len(items) >= max_items: break
@@ -138,7 +138,7 @@ def _fetch_feed():
     if not url:
         return {"configured":False,"source":"News","description":"Configure an RSS or Atom feed in Admin.","homepage":"","items":[],"fetched_at":int(time.time())}
     timeout = max(2.0,min(30.0,float(os.getenv("NEWS_REQUEST_TIMEOUT","8") or 8)))
-    response = requests.get(url,headers={"Accept":"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5","User-Agent":"RackDash-News/1.0.0"},timeout=timeout)
+    response = requests.get(url,headers={"Accept":"application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5","User-Agent":"RackDash-News/1.0.2"},timeout=timeout)
     response.raise_for_status()
     feed = _parse_feed(response.content,response.url or url)
     override = os.getenv("NEWS_SOURCE_LABEL","").strip()
@@ -147,7 +147,7 @@ def _fetch_feed():
 def get_data():
     cached = _cache.get()
     if cached is not None: return cached
-    data = _fetch_feed(); _cache.set(data); return data
+    data = _fetch_feed(); return _cache.set(data)
 
 PLUGIN_HTML = r'''
 <div class="news-shell">
@@ -170,11 +170,76 @@ PLUGIN_CSS = r'''
 '''
 
 PLUGIN_JS = r'''
-(function(){
-  const root=document.querySelector(".plugin-news"); if(!root)return;
-  function relativeTime(ts){const v=Number(ts||0);if(!v)return "";const s=Math.max(0,Math.floor(Date.now()/1000-v));if(s<60)return "just now";if(s<3600)return `${Math.floor(s/60)}m ago`;if(s<86400)return `${Math.floor(s/3600)}h ago`;if(s<604800)return `${Math.floor(s/86400)}d ago`;return new Date(v*1000).toLocaleDateString()}
-  function articleHtml(item,index){const title=RackDash.escape(item.title||"Untitled"),summary=RackDash.escape(item.summary||""),author=RackDash.escape(item.author||""),published=RackDash.escape(relativeTime(item.published)),link=String(item.link||"").trim(),image=String(item.image||"").trim();const titleHtml=link?`<a href="${RackDash.escape(link)}" target="_blank" rel="noopener noreferrer">${title}</a>`:title;return `<article class="surface news-card ${image?"has-image":""}">${image?`<img class="news-image" src="${RackDash.escape(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:""}<div class="news-body"><div class="news-kicker"><span>#${String(index+1).padStart(2,"0")}</span>${published?`<span>${published}</span>`:""}${author?`<span>${author}</span>`:""}</div><h2>${titleHtml}</h2>${summary?`<p class="news-summary">${summary}</p>`:""}${link?`<a class="news-open" href="${RackDash.escape(link)}" target="_blank" rel="noopener noreferrer">OPEN ARTICLE ↗</a>`:""}</div></article>`}
-  function render(data){const source=root.querySelector('[data-role="source"]'),description=root.querySelector('[data-role="description"]'),status=root.querySelector('[data-role="status"]'),count=root.querySelector('[data-role="count"]'),grid=root.querySelector('[data-role="grid"]');if(source)source.textContent=data.source||"News";if(description)description.textContent=data.description||(data.configured?"Latest stories from the configured feed.":"Configure an RSS or Atom feed in Admin.");const items=Array.isArray(data.items)?data.items:[];if(count)count.textContent=String(items.length);if(status)status.textContent=data.configured?"LIVE":"SETUP";if(!grid)return;if(!items.length){grid.innerHTML=`<article class="surface news-empty"><strong>${data.configured?"NO STORIES RETURNED":"RSS FEED NOT CONFIGURED"}</strong><span class="muted">${data.configured?"The feed did not return any readable stories.":"Open Admin → Plugins → News → Settings to add a feed URL."}</span></article>`;return}grid.innerHTML=items.map(articleHtml).join("")}
-  window.RackDashPluginRender=window.RackDashPluginRender||{};window.RackDashPluginRender.news=render;
-})();
+window.RackDashPlugins.news={
+  relativeTime(ts){
+    const v=Number(ts||0);
+    if(!v)return "";
+    const s=Math.max(0,Math.floor(Date.now()/1000-v));
+    if(s<60)return "just now";
+    if(s<3600)return `${Math.floor(s/60)}m ago`;
+    if(s<86400)return `${Math.floor(s/3600)}h ago`;
+    if(s<604800)return `${Math.floor(s/86400)}d ago`;
+    return new Date(v*1000).toLocaleDateString();
+  },
+
+  articleHtml(item,index){
+    const title=RackDash.escape(item.title||"Untitled");
+    const summary=RackDash.escape(item.summary||"");
+    const author=RackDash.escape(item.author||"");
+    const published=RackDash.escape(this.relativeTime(item.published));
+    const link=String(item.link||"").trim();
+    const image=String(item.image||"").trim();
+
+    const titleHtml=link
+      ?`<a href="${RackDash.escape(link)}" target="_blank" rel="noopener noreferrer">${title}</a>`
+      :title;
+
+    return `
+      <article class="surface news-card ${image?"has-image":""}">
+        ${image?`<img class="news-image" src="${RackDash.escape(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:""}
+        <div class="news-body">
+          <div class="news-kicker">
+            <span>#${String(index+1).padStart(2,"0")}</span>
+            ${published?`<span>${published}</span>`:""}
+            ${author?`<span>${author}</span>`:""}
+          </div>
+          <h2>${titleHtml}</h2>
+          ${summary?`<p class="news-summary">${summary}</p>`:""}
+          ${link?`<a class="news-open" href="${RackDash.escape(link)}" target="_blank" rel="noopener noreferrer">OPEN ARTICLE ↗</a>`:""}
+        </div>
+      </article>
+    `;
+  },
+
+  render(data,root){
+    const source=root.querySelector('[data-role="source"]');
+    const description=root.querySelector('[data-role="description"]');
+    const status=root.querySelector('[data-role="status"]');
+    const count=root.querySelector('[data-role="count"]');
+    const grid=root.querySelector('[data-role="grid"]');
+
+    if(source)source.textContent=data.source||"News";
+    if(description){
+      description.textContent=data.description||
+        (data.configured?"Latest stories from the configured feed.":"Configure an RSS or Atom feed in Admin.");
+    }
+
+    const items=Array.isArray(data.items)?data.items:[];
+    if(count)count.textContent=String(items.length);
+    if(status)status.textContent=data.configured?"LIVE":"SETUP";
+
+    if(!grid)return;
+    if(!items.length){
+      grid.innerHTML=`
+        <article class="surface news-empty">
+          <strong>${data.configured?"NO STORIES RETURNED":"RSS FEED NOT CONFIGURED"}</strong>
+          <span class="muted">${data.configured?"The feed connected, but no readable stories were returned.":"Open Admin → Plugins → News → Settings to add a feed URL."}</span>
+        </article>
+      `;
+      return;
+    }
+
+    grid.innerHTML=items.map((item,index)=>this.articleHtml(item,index)).join("");
+  }
+};
 '''
