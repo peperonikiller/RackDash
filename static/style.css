@@ -899,3 +899,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .wled-runtime span{padding:.18rem .3rem;border:1px solid var(--border);border-radius:.25rem;color:var(--muted);font-size:.42rem}
 @media(max-width:1150px){.wled-form-grid.connection,.wled-form-grid.appearance{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.wled-panel-head{flex-direction:column}.wled-status-row{grid-template-columns:1fr}.wled-form-grid.connection,.wled-form-grid.appearance{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* RackDash 3.1.6 - WLED preset status UI */
+.wled-form-grid.connection{grid-template-columns:.65fr 2.3fr .75fr}
+.wled-preset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
+.wled-preset-card{display:grid;gap:.28rem;padding:.55rem;border:1px solid var(--border);border-radius:.45rem;background:rgba(255,255,255,.012)}
+.wled-preset-card>div{display:flex;align-items:center;gap:.35rem}.wled-preset-card strong{font-size:.62rem}.wled-preset-card small{color:var(--muted);font-size:.46rem}
+.wled-preset-card select{width:100%;min-width:0;border:1px solid var(--border);background:#081117;color:var(--text);border-radius:.35rem;padding:.42rem;font-size:.58rem}
+.wled-preset-dot{width:.55rem;height:.55rem;border-radius:50%}.wled-preset-card.healthy .wled-preset-dot{background:#58d67d;box-shadow:0 0 8px rgba(88,214,125,.7)}.wled-preset-card.update .wled-preset-dot{background:#ff9f43;box-shadow:0 0 8px rgba(255,159,67,.7)}.wled-preset-card.failure .wled-preset-dot{background:#ff4757;box-shadow:0 0 8px rgba(255,71,87,.7)}
+@media(max-width:900px){.wled-preset-grid{grid-template-columns:1fr}.wled-form-grid.connection{grid-template-columns:1fr 2fr}}

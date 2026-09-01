@@ -340,3 +340,5 @@ against the RackDash application's GitHub release version.
 
 
 RackDash 3.1.5 uses a curated built-in set of status animations instead of importing WLED's effect list: Centered Breathe, Solid, Pulse, Scanner, Center Pulse, and Soft Twinkle. These modes are rendered against the live configured WLED segment length.
+
+RackDash 3.1.6 core WLED status lighting uses WLED presets. Admin loads presets from the configured WLED device and assigns separate Healthy, Update Required, and Error presets. RackDash sends only the preset ID; the WLED device owns the complete animation.

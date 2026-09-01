@@ -165,16 +165,10 @@
   <div class="wled-panel-head">
     <div>
       <div class="section-label">WLED LIGHTING</div>
-      <h3>Network Status Lighting</h3>
-      <p class="muted">RackDash controls one WLED segment as a status bar. Healthy is green, updates are orange, and active failures are red.</p>
+      <h3>Status Presets</h3>
+      <p class="muted">RackDash only chooses a WLED preset. WLED handles the colors, brightness, effects, segments, transitions, and animation timing.</p>
     </div>
     <div class="wled-state" id="wledState">NOT CONFIGURED</div>
-  </div>
-
-  <div class="wled-status-row">
-    <span class="healthy">HEALTHY · GREEN</span>
-    <span class="update">UPDATE · ORANGE</span>
-    <span class="failure">FAILURE · RED</span>
   </div>
 
   <div class="wled-card">
@@ -182,42 +176,37 @@
     <div class="wled-form-grid connection">
       <label class="checkbox-field"><span>Enable WLED</span><input type="checkbox" id="wledEnabled"></label>
       <label class="wide"><span>Device URL / IP</span><input id="wledUrl" type="text" value="http://wled.local" placeholder="http://192.168.1.50"></label>
-      <label><span>Segment</span><input id="wledSegment" type="number" value="0" min="0" max="31"></label>
       <label><span>Timeout (sec)</span><input id="wledTimeout" type="number" value="3" min=".5" max="15" step=".5"></label>
     </div>
   </div>
 
-  <div class="wled-card">
-    <div class="wled-card-title">Appearance</div>
-    <div class="wled-form-grid appearance">
-      <label><span>Mode</span>
-        <select id="wledStatusMode">
-          <option value="center_breathe">Centered Breathe</option>
-          <option value="solid">Solid</option>
-          <option value="pulse">Pulse</option>
-          <option value="scanner">Scanner</option>
-          <option value="center_pulse">Center Pulse</option>
-          <option value="twinkle">Soft Twinkle</option>
-        </select>
-      </label>
-      <label><span>Brightness <strong id="wledBrightnessValue">35%</strong></span><input id="wledBrightness" type="range" value="35" min="0" max="100"></label>
-      <label><span>Cycle (sec)</span><input id="wledBreatheSeconds" type="number" value="4" min="1" max="20" step=".25"></label>
-      <label><span>Center Spread</span><input id="wledBreatheSpread" type="range" value="65" min="10" max="100"></label>
-      <label><span>Edge Glow</span><input id="wledBreatheFloor" type="range" value="8" min="0" max="40"></label>
-      <label><span>Transition (ms)</span><input id="wledTransitionMs" type="number" value="350" min="0" max="65000" step="50"></label>
+  <div class="wled-preset-grid">
+    <div class="wled-preset-card healthy">
+      <div><span class="wled-preset-dot"></span><strong>Healthy</strong></div>
+      <small>Normal RackDash operation</small>
+      <select id="wledHealthyPreset"><option value="0">Not configured</option></select>
+    </div>
+    <div class="wled-preset-card update">
+      <div><span class="wled-preset-dot"></span><strong>Update Required</strong></div>
+      <small>RackDash or plugin update detected</small>
+      <select id="wledUpdatePreset"><option value="0">Not configured</option></select>
+    </div>
+    <div class="wled-preset-card failure">
+      <div><span class="wled-preset-dot"></span><strong>Error</strong></div>
+      <small>Active enabled-plugin failure</small>
+      <select id="wledErrorPreset"><option value="0">Not configured</option></select>
     </div>
   </div>
 
-  <div class="wled-card wled-geometry">
-    <div class="wled-card-title">Strip Geometry</div>
-    <div class="muted">RackDash reads the configured WLED segment length and automatically centers animations across the correct LED count.</div>
+  <div class="wled-card wled-device-card">
+    <div class="wled-card-title">WLED Device</div>
     <div class="wled-runtime" id="wledRuntime"></div>
   </div>
 
   <div class="wled-actions">
     <button type="button" class="primary" id="wledSave">SAVE & CONNECT</button>
-    <button type="button" id="wledRefresh">REFRESH DEVICE</button>
-    <button type="button" id="wledTest">TEST STATUS LIGHTING</button>
+    <button type="button" id="wledRefresh">REFRESH PRESETS</button>
+    <button type="button" id="wledTest">TEST 3 PRESETS</button>
     <span id="wledMessage" class="muted"></span>
   </div>
 </section>

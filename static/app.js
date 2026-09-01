@@ -249,6 +249,7 @@
   }
 
   let autoScrollVisitToken=0;
+  let autoScrollDirection=1;
 
   function stopAutoScroll(resetInterruption=false){
     autoScrollVisitToken++;
@@ -264,6 +265,7 @@
 
     autoScrollStartedAt=0;
     autoScrollLastFrame=0;
+    autoScrollDirection=1;
 
     if(resetInterruption){
       autoScrollInterrupted=false;
@@ -272,92 +274,93 @@
 
   function autoScrollSpeed(distance,rotateFor){
     const remaining=Math.max(6,Number(rotateFor||30)-5);
-    return Math.max(
-      16,
-      Math.min(38,Number(distance||0)/remaining)
-    );
+    return Math.max(16,Math.min(38,Number(distance||0)/remaining));
   }
 
-  function beginAutoScroll(id,visitToken,retry=0){
-    if(
+  function autoScrollStillValid(id,visitToken){
+    return !(
       visitToken!==autoScrollVisitToken||
       autoScrollInterrupted||
       showingHealth||
       logoMode||
       document.hidden||
       tabPluginIds[activeIndex]!==id
-    ){
-      return;
-    }
+    );
+  }
+
+  function scheduleAutoScrollLeg(id,visitToken,direction,delay=5000,retry=0){
+    if(!autoScrollStillValid(id,visitToken))return;
+    autoScrollDirection=direction<0?-1:1;
+    autoScrollTimer=setTimeout(()=>{
+      autoScrollTimer=null;
+      beginAutoScrollLeg(id,visitToken,autoScrollDirection,retry);
+    },Math.max(0,delay));
+  }
+
+  function beginAutoScrollLeg(id,visitToken,direction,retry=0){
+    if(!autoScrollStillValid(id,visitToken))return;
 
     const page=pages.find(item=>item.dataset.plugin===id);
-    const scroller=page?.querySelector(".plugin-scroll");
+    const scroller=page?.querySelector('.plugin-scroll');
     if(!scroller)return;
 
-    const bottom=Math.max(
-      0,
-      scroller.scrollHeight-scroller.clientHeight
-    );
+    const bottom=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
 
-    // Plugins can still be rendering when the five-second delay expires.
-    // Retry for up to ten seconds so late content does not permanently skip
-    // auto-scroll for this tab visit.
+    // Plugins can still be rendering when the initial delay expires. Retry
+    // for up to ten seconds before deciding there is nothing to scroll.
     if(bottom<8){
       if(retry<20){
         autoScrollTimer=setTimeout(()=>{
           autoScrollTimer=null;
-          beginAutoScroll(id,visitToken,retry+1);
+          beginAutoScrollLeg(id,visitToken,direction,retry+1);
         },500);
       }
       return;
     }
 
     const meta=pluginById[id]||{};
-    const rotateFor=Math.max(
-      3,
-      Number(meta.rotation_seconds||cfg.rotateSeconds||30)
-    );
-    const distance=Math.max(0,bottom-scroller.scrollTop);
-    const pixelsPerSecond=autoScrollSpeed(distance,rotateFor);
+    const rotateFor=Math.max(3,Number(meta.rotation_seconds||cfg.rotateSeconds||30));
+    const target=direction>0?bottom:0;
+    const distance=Math.abs(target-scroller.scrollTop);
 
+    // If layout changes put us at the requested edge already, simply hold
+    // for five seconds and reverse again.
+    if(distance<1){
+      scroller.scrollTop=target;
+      scheduleAutoScrollLeg(id,visitToken,-direction,5000,0);
+      return;
+    }
+
+    const pixelsPerSecond=autoScrollSpeed(distance,rotateFor);
     autoScrollStartedAt=performance.now();
     autoScrollLastFrame=autoScrollStartedAt;
 
     const frame=now=>{
-      if(
-        visitToken!==autoScrollVisitToken||
-        autoScrollInterrupted||
-        showingHealth||
-        logoMode||
-        document.hidden||
-        tabPluginIds[activeIndex]!==id
-      ){
+      if(!autoScrollStillValid(id,visitToken)){
         autoScrollFrame=null;
         return;
       }
 
-      const currentBottom=Math.max(
-        0,
-        scroller.scrollHeight-scroller.clientHeight
-      );
+      const currentBottom=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
+      const liveTarget=direction>0?currentBottom:0;
+      const reached=direction>0
+        ?scroller.scrollTop>=liveTarget-1
+        :scroller.scrollTop<=1;
 
-      if(scroller.scrollTop>=currentBottom-1){
-        scroller.scrollTop=currentBottom;
+      if(reached){
+        scroller.scrollTop=liveTarget;
         autoScrollFrame=null;
+        // Hold at each edge for five seconds, then travel the other way.
+        scheduleAutoScrollLeg(id,visitToken,-direction,5000,0);
         return;
       }
 
-      const dt=Math.min(
-        .05,
-        Math.max(0,(now-autoScrollLastFrame)/1000)
-      );
+      const dt=Math.min(.05,Math.max(0,(now-autoScrollLastFrame)/1000));
       autoScrollLastFrame=now;
-
-      scroller.scrollTop=Math.min(
-        currentBottom,
-        scroller.scrollTop+pixelsPerSecond*dt
-      );
-
+      const next=scroller.scrollTop+(direction*pixelsPerSecond*dt);
+      scroller.scrollTop=direction>0
+        ?Math.min(liveTarget,next)
+        :Math.max(0,next);
       autoScrollFrame=requestAnimationFrame(frame);
     };
 
@@ -371,47 +374,28 @@
 
     const id=tabPluginIds[activeIndex];
     const meta=pluginById[id]||{};
-
     if(meta.auto_scroll!==true)return;
 
     const visitToken=autoScrollVisitToken;
     const page=pages.find(item=>item.dataset.plugin===id);
-    const scroller=page?.querySelector(".plugin-scroll");
+    const scroller=page?.querySelector('.plugin-scroll');
     if(!scroller)return;
 
     // Any deliberate user interaction cancels automatic scrolling until this
     // plugin is visited again.
     const interrupt=()=>{
-      if(
-        visitToken===autoScrollVisitToken&&
-        (autoScrollTimer||autoScrollFrame)
-      ){
+      if(visitToken===autoScrollVisitToken&&(autoScrollTimer||autoScrollFrame)){
         autoScrollInterrupted=true;
         stopAutoScroll(false);
       }
     };
 
-    scroller.addEventListener(
-      "wheel",
-      interrupt,
-      {once:true,passive:true}
-    );
-    scroller.addEventListener(
-      "touchstart",
-      interrupt,
-      {once:true,passive:true}
-    );
-    scroller.addEventListener(
-      "pointerdown",
-      interrupt,
-      {once:true,passive:true}
-    );
+    scroller.addEventListener('wheel',interrupt,{once:true,passive:true});
+    scroller.addEventListener('touchstart',interrupt,{once:true,passive:true});
+    scroller.addEventListener('pointerdown',interrupt,{once:true,passive:true});
 
-    // Required behavior: do nothing for five seconds, then begin scrolling.
-    autoScrollTimer=setTimeout(()=>{
-      autoScrollTimer=null;
-      beginAutoScroll(id,visitToken,0);
-    },5000);
+    // Keep the existing five-second reading pause before the first trip down.
+    scheduleAutoScrollLeg(id,visitToken,1,5000,0);
   }
 
   function show(index, userInitiated=false){
@@ -468,59 +452,73 @@
   }
 
 
-  function renderWLED(status){
-    const state=document.getElementById("wledState");
-    if(!state)return;
+  function fillWLEDPresetSelect(id,presets,current){
+    const select=document.getElementById(id);
+    if(!select)return;
+    const value=String(current??'0');
+    select.innerHTML='<option value="0">Not configured</option>'+(presets||[]).map(preset=>
+      `<option value="${RackDash.escape(String(preset.id))}">${RackDash.escape(`${preset.id} · ${preset.name}`)}</option>`
+    ).join('');
+    select.value=[...select.options].some(option=>option.value===value)?value:'0';
+  }
 
+  function renderWLED(status){
+    const state=document.getElementById('wledState');
+    if(!state)return;
     const setValue=(id,value)=>{
       const el=document.getElementById(id);
       if(!el)return;
-      if(el.type==="checkbox")el.checked=!!value;
+      if(el.type==='checkbox')el.checked=!!value;
       else el.value=value;
     };
-    const setText=(id,value)=>{
-      const el=document.getElementById(id);
-      if(el)el.textContent=value;
-    };
 
-    setValue("wledEnabled",!!status.enabled);
-    setValue("wledUrl",status.url||"http://wled.local");
-    setValue("wledSegment",status.segment??0);
-    setValue("wledBrightness",status.brightness??35);
-    setValue("wledStatusMode",status.status_mode||"center_breathe");
-    setValue("wledBreatheSeconds",status.breathe_seconds??4);
-    setValue("wledBreatheSpread",status.breathe_spread??65);
-    setValue("wledBreatheFloor",status.breathe_floor??8);
-    setValue("wledTransitionMs",status.transition_ms??350);
-    setValue("wledTimeout",status.timeout??3);
+    setValue('wledEnabled',!!status.enabled);
+    setValue('wledUrl',status.url||'http://wled.local');
+    setValue('wledTimeout',status.timeout??3);
 
-    setText("wledBrightnessValue",`${status.brightness??35}%`);
+    state.textContent=!status.enabled?'DISABLED':status.connected?'CONNECTED':'OFFLINE';
+    state.className=`wled-state ${status.enabled?(status.connected?'online':'error'):''}`;
 
-    state.textContent=!status.enabled?"DISABLED":status.connected?"CONNECTED":"OFFLINE";
-    state.className=`wled-state ${status.enabled?(status.connected?"online":"error"):""}`;
-
-    const runtime=document.getElementById("wledRuntime");
+    const runtime=document.getElementById('wledRuntime');
     if(runtime){
       runtime.innerHTML=[
         status.device_name&&`DEVICE ${status.device_name}`,
         status.version&&`WLED ${status.version}`,
         status.led_count!=null&&`LEDS ${status.led_count}`,
-        status.max_segments!=null&&`MAX SEGMENTS ${status.max_segments}`,
         status.rssi!=null&&`RSSI ${status.rssi} dBm`,
-        `SOURCE ${status.active_source||"--"}`,
-        `EFFECT ${status.active_effect||"--"}`,
-        status.segment_count!=null&&`SEGMENT LEDS ${status.segment_count}`,
-        status.center!=null&&`CENTER ${status.center}`,
-        status.last_error?`ERROR ${status.last_error}`:"NO ERRORS"
-      ].filter(Boolean).map(x=>`<span>${RackDash.escape(x)}</span>`).join("");
+        `SOURCE ${status.active_source||'--'}`,
+        status.active_preset_name&&`PRESET ${status.active_preset_name}`,
+        status.last_error?`ERROR ${status.last_error}`:'NO ERRORS'
+      ].filter(Boolean).map(x=>`<span>${RackDash.escape(x)}</span>`).join('');
+    }
+  }
+
+  async function loadWLEDPresets(status=null){
+    const message=document.getElementById('wledMessage');
+    try{
+      const response=await fetch('/api/admin/wled/options',{cache:'no-store'});
+      const data=await response.json();
+      if(!data.ok)throw new Error(data.error||'Unable to read WLED presets');
+      const current=status||{};
+      fillWLEDPresetSelect('wledHealthyPreset',data.presets,current.healthy_preset);
+      fillWLEDPresetSelect('wledUpdatePreset',data.presets,current.update_preset);
+      fillWLEDPresetSelect('wledErrorPreset',data.presets,current.error_preset);
+      if(message)message.textContent=`Loaded ${(data.presets||[]).length} WLED presets.`;
+      return data;
+    }catch(error){
+      if(message)message.textContent=`WLED presets unavailable: ${error.message}`;
+      return null;
     }
   }
 
   async function loadWLED(){
     try{
-      const response=await fetch("/api/admin/wled",{cache:"no-store"});
+      const response=await fetch('/api/admin/wled',{cache:'no-store'});
       const data=await response.json();
-      if(data.ok)renderWLED(data.status||{});
+      if(data.ok){
+        renderWLED(data.status||{});
+        if(data.status?.enabled)await loadWLEDPresets(data.status||{});
+      }
     }catch(_e){}
   }
 
@@ -1417,43 +1415,39 @@
 
   tabs.forEach((tab,i)=>tab.addEventListener("click",()=>show(i,true)));
   healthTab?.addEventListener("click",()=>showHealth());
-  document.getElementById("wledBrightness")?.addEventListener("input",e=>{const label=document.getElementById("wledBrightnessValue");if(label)label.textContent=`${e.currentTarget.value}%`;});
   function collectWLEDSettings(){
     return {
-      enabled:!!document.getElementById("wledEnabled")?.checked,
-      url:document.getElementById("wledUrl")?.value||"",
-      segment:document.getElementById("wledSegment")?.value||0,
-      brightness:document.getElementById("wledBrightness")?.value||35,
-      status_mode:document.getElementById("wledStatusMode")?.value||"center_breathe",
-      breathe_seconds:document.getElementById("wledBreatheSeconds")?.value||4,
-      breathe_spread:document.getElementById("wledBreatheSpread")?.value||65,
-      breathe_floor:document.getElementById("wledBreatheFloor")?.value||8,
-      transition_ms:document.getElementById("wledTransitionMs")?.value||350,
-      timeout:document.getElementById("wledTimeout")?.value||3
+      enabled:!!document.getElementById('wledEnabled')?.checked,
+      url:document.getElementById('wledUrl')?.value||'',
+      healthy_preset:document.getElementById('wledHealthyPreset')?.value||0,
+      update_preset:document.getElementById('wledUpdatePreset')?.value||0,
+      error_preset:document.getElementById('wledErrorPreset')?.value||0,
+      timeout:document.getElementById('wledTimeout')?.value||3
     };
   }
 
   async function saveWLEDSettings(showMessage=true){
-    const message=document.getElementById("wledMessage");
-    if(showMessage&&message)message.textContent="Saving WLED settings...";
-    const response=await adminFetch("/api/admin/wled",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
+    const message=document.getElementById('wledMessage');
+    if(showMessage&&message)message.textContent='Saving WLED settings...';
+    const response=await adminFetch('/api/admin/wled',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify(collectWLEDSettings())
     });
     const result=await response.json();
-    if(!result.ok)throw new Error(result.error||"Unable to save WLED settings");
+    if(!result.ok)throw new Error(result.error||'Unable to save WLED settings');
     renderWLED(result.status||{});
+    if(result.status?.enabled)await loadWLEDPresets(result.status||{});
     markWLEDSettingsDirty(false);
-    if(showMessage&&message)message.textContent=result.status?.connected?"WLED settings saved.":"WLED settings saved; device is offline.";
+    if(showMessage&&message)message.textContent=result.status?.connected?'WLED preset settings saved.':'WLED settings saved; device is offline.';
     return result;
   }
 
-  ["wledEnabled","wledUrl","wledSegment","wledBrightness","wledStatusMode","wledBreatheSeconds","wledBreatheSpread","wledBreatheFloor","wledTransitionMs","wledTimeout"].forEach(id=>{
+  ['wledEnabled','wledUrl','wledHealthyPreset','wledUpdatePreset','wledErrorPreset','wledTimeout'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
-    el.addEventListener("input",()=>markWLEDSettingsDirty(true));
-    el.addEventListener("change",()=>markWLEDSettingsDirty(true));
+    el.addEventListener('input',()=>markWLEDSettingsDirty(true));
+    el.addEventListener('change',()=>markWLEDSettingsDirty(true));
   });
 
   document.getElementById("wledSave")?.addEventListener("click",async()=>{
