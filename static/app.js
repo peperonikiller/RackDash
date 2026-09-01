@@ -499,11 +499,17 @@
       const response=await fetch('/api/admin/wled/options',{cache:'no-store'});
       const data=await response.json();
       if(!data.ok)throw new Error(data.error||'Unable to read WLED presets');
-      const current=status||{};
+      const current=(status&&Object.keys(status).length)?status:(data.configured||{});
       fillWLEDPresetSelect('wledHealthyPreset',data.presets,current.healthy_preset);
       fillWLEDPresetSelect('wledUpdatePreset',data.presets,current.update_preset);
       fillWLEDPresetSelect('wledErrorPreset',data.presets,current.error_preset);
-      if(message)message.textContent=`Loaded ${(data.presets||[]).length} WLED presets.`;
+      const count=(data.presets||[]).length;
+      if(message){
+        if(!count)message.textContent='Connected to WLED, but no saved presets were found on the device.';
+        else if(!(current.healthy_preset&&current.update_preset&&current.error_preset))
+          message.textContent=`Loaded ${count} WLED presets. Select Healthy, Update, and Error, then SAVE & CONNECT again.`;
+        else message.textContent=`Loaded ${count} WLED presets.`;
+      }
       return data;
     }catch(error){
       if(message)message.textContent=`WLED presets unavailable: ${error.message}`;
@@ -1439,7 +1445,12 @@
     renderWLED(result.status||{});
     if(result.status?.enabled)await loadWLEDPresets(result.status||{});
     markWLEDSettingsDirty(false);
-    if(showMessage&&message)message.textContent=result.status?.connected?'WLED preset settings saved.':'WLED settings saved; device is offline.';
+    if(showMessage&&message){
+      const configured=Number(result.status?.healthy_preset)>0&&Number(result.status?.update_preset)>0&&Number(result.status?.error_preset)>0;
+      if(!result.status?.connected)message.textContent='WLED settings saved, but the device is offline.';
+      else if(!configured)message.textContent='Connected. Choose all three status presets, then SAVE & CONNECT again.';
+      else message.textContent=`WLED presets saved and applied. Active: ${result.status?.active_preset_name||('Preset '+result.status?.active_preset)}.`;
+    }
     return result;
   }
 
@@ -1453,6 +1464,40 @@
   document.getElementById("wledSave")?.addEventListener("click",async()=>{
     try{await saveWLEDSettings(true);}
     catch(error){const m=document.getElementById("wledMessage");if(m)m.textContent=error.message;markWLEDSettingsDirty(true);}
+  });
+
+  document.getElementById("wledRefresh")?.addEventListener("click",async()=>{
+    const message=document.getElementById("wledMessage");
+    if(message)message.textContent="Connecting to WLED and refreshing presets...";
+    try{
+      await loadWLEDPresets();
+      await loadWLED();
+    }catch(error){
+      if(message)message.textContent=error.message||"Unable to refresh WLED presets.";
+    }
+  });
+
+  document.getElementById("wledTest")?.addEventListener("click",async()=>{
+    const button=document.getElementById("wledTest");
+    const message=document.getElementById("wledMessage");
+    if(button){button.disabled=true;button.textContent="TESTING...";}
+    if(message)message.textContent="Testing Healthy → Update → Error presets (3 seconds each)...";
+    try{
+      const response=await adminFetch("/api/admin/wled/test",{method:"POST"});
+      const result=await response.json();
+      if(!result.ok)throw new Error(result.error||"WLED preset test failed");
+      if(message)message.textContent="Preset test started: Healthy → Update → Error.";
+      setTimeout(()=>loadWLED(),9500);
+    }catch(error){
+      if(message)message.textContent=error.message;
+    }finally{
+      if(button){
+        setTimeout(()=>{
+          button.disabled=false;
+          button.textContent="TEST 3 PRESETS";
+        },9500);
+      }
+    }
   });
 
   document.getElementById("i2cTest")?.addEventListener("click",async()=>{

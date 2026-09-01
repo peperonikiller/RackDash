@@ -36,7 +36,7 @@ class WLEDLightingManager:
  def _request(self,method,path,payload=None):
   c=self._cfg()
   if not c['url']:raise RuntimeError('WLED URL is not configured.')
-  r=self.session.request(method,c['url']+path,json=payload,timeout=c['timeout'],headers={'User-Agent':'RackDash-WLED/3.1.6'});r.raise_for_status()
+  r=self.session.request(method,c['url']+path,json=payload,timeout=c['timeout'],headers={'User-Agent':'RackDash-WLED/3.1.7'});r.raise_for_status()
   return r.json() if getattr(r,'content',b'') else {}
  def _load_presets(self):
   raw=self._request('GET','/presets.json')
@@ -160,6 +160,19 @@ class WLEDLightingManager:
  def stop(self):
   self._stop.set()
   if self._thread:self._thread.join(timeout=2)
+ def apply_current_state(self,force=True):
+  c=self._cfg()
+  if not c['enabled']:
+   self._active_source='disabled';self._active_preset=0;self._active_preset_name=''
+   return self.status()
+  self.refresh_device(True)
+  state=self._resolve_state(c,time.monotonic())
+  self._active_source=state.get('source','unknown')
+  self._active_preset=int(state.get('preset') or 0)
+  self._active_preset_name=self._preset_name(self._active_preset)
+  self._send(state,c,force)
+  return self.status()
+
  def save_settings(self,x):
   vals={
    'WLED_ENABLED':'true' if x.get('enabled') else 'false',
@@ -170,7 +183,11 @@ class WLEDLightingManager:
    'WLED_TIMEOUT':str(float(_clamp(float(x.get('timeout') or 3),.5,15))),
   }
   update_schema_values(self.config_path,WLED_CONFIG,vals);self._checked=0;self._last_key=''
-  if x.get('enabled'):self.refresh_device(True)
+  if x.get('enabled'):
+   self.refresh_device(True)
+   configured=[vals['WLED_HEALTHY_PRESET'],vals['WLED_UPDATE_PRESET'],vals['WLED_ERROR_PRESET']]
+   if all(int(v or 0)>0 for v in configured):
+    return self.apply_current_state(True)
   return self.status()
  def test(self):
   c=self._cfg()
@@ -180,7 +197,7 @@ class WLEDLightingManager:
   self.refresh_device(True);self._test_started=time.monotonic();self._test_until=self._test_started+9;self._last_key='';return self.status()
  def device_options(self):
   if self._cfg()['enabled']:self.refresh_device(True)
-  return {'presets':list(self._presets),'info':dict(self._info),'state':dict(self._state)}
+  return {'presets':list(self._presets),'info':dict(self._info),'state':dict(self._state),'current_preset':int((self._state or {}).get('ps') or 0),'configured':self._cfg()}
  def status(self):
   c=self._cfg();leds=self._info.get('leds') or {};wifi=self._info.get('wifi') or {}
   return {**c,'connected':self._connected,'last_error':self._last_error,'last_success':self._last_success,'active_source':self._active_source,'active_preset':self._active_preset,'active_preset_name':self._active_preset_name,'device_name':self._info.get('name') or self._info.get('brand') or '', 'version':self._info.get('ver') or '', 'led_count':leds.get('count'),'rssi':wifi.get('rssi'),'preset_count':len(self._presets)}
