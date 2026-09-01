@@ -15,7 +15,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "news"
 PLUGIN_NAME = "News"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.0.1"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/news.py"
 PLUGIN_MIN_RACKDASH = "3.0.0"
@@ -145,9 +145,9 @@ def _fetch_feed():
     return {"configured":True,"source":override or feed["title"],"description":feed["description"],"homepage":feed["homepage"],"items":feed["items"],"fetched_at":int(time.time())}
 
 def get_data():
-    cached = _cache.get("feed")
+    cached = _cache.get()
     if cached is not None: return cached
-    data = _fetch_feed(); _cache.set("feed",data); return data
+    data = _fetch_feed(); _cache.set(data); return data
 
 PLUGIN_HTML = r'''
 <div class="news-shell">
