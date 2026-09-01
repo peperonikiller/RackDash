@@ -1081,10 +1081,18 @@
         row?.querySelector("[data-release-notes]"),
         u.status==="update_available"?u.release_notes:null
       );
-      if(data.update_attention)setAdminUpdateAttention(!!data.update_attention.available);else if(result.update_attention)setAdminUpdateAttention(!!result.update_attention.available);else if(u.status==="update_available")setAdminUpdateAttention(true);
+      if(result.update_attention){
+        setAdminUpdateAttention(!!result.update_attention.available);
+      }else if(u.status==="update_available"){
+        setAdminUpdateAttention(true);
+      }
       refreshHealthUpdateCount();
     }catch(e){
-      if(status){status.textContent="Check failed";status.className="health-update-status error";}
+      if(status){
+        status.textContent=e?.message||"Check failed";
+        status.className="health-update-status error";
+      }
+      console.warn(`Plugin update check failed for ${id}:`,e);
     }finally{
       if(button)button.disabled=false;
     }
