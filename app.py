@@ -31,7 +31,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / "config.env")
 
 APP_NAME = "RackDash"
-APP_VERSION = "3.1.8"
+APP_VERSION = "3.1.9"
 RACKDASH_GITHUB = "https://github.com/peperonikiller/RackDash"
 ROTATE_SECONDS = max(3, int(os.getenv("ROTATE_SECONDS", "30")))
 
@@ -394,6 +394,15 @@ wled_manager = WLEDLightingManager(
 wled_manager.start()
 
 
+def _sync_wled_status_now():
+    """Immediately apply the preset that matches the current RackDash state."""
+    try:
+        return wled_manager.apply_current_state(True)
+    except Exception:
+        app.logger.exception("Unable to synchronize WLED status preset")
+        return None
+
+
 @app.get("/")
 def index():
     response = make_response(render_template(
@@ -512,7 +521,11 @@ def api_health_plugin_update(plugin_id: str):
 
     row = update_monitor.check_plugin(plugin, automatic=False)
     if row.get("ok"):
-        _set_manual_update_source(f"plugin:{plugin.id}", _row_has_update(row.get("result") or {}, plugin.plugin_version))
+        _set_manual_update_source(
+            f"plugin:{plugin.id}",
+            _row_has_update(row.get("result") or {}, plugin.plugin_version),
+        )
+        _sync_wled_status_now()
         return jsonify({
             "ok": True,
             "plugin": plugin_id,
@@ -646,7 +659,11 @@ def api_health_plugin_test(plugin_id: str):
 def api_health_rackdash_update():
     row = update_monitor.check_core(automatic=False)
     if row.get("ok"):
-        _set_manual_update_source("core", _row_has_update(row.get("result") or {}, APP_VERSION))
+        _set_manual_update_source(
+            "core",
+            _row_has_update(row.get("result") or {}, APP_VERSION),
+        )
+        _sync_wled_status_now()
     if row.get("ok"):
         return jsonify({
             "ok": True,
@@ -697,11 +714,17 @@ def api_admin_plugin_updates_check_all():
     _manual_update_attention_sources.clear()
     if core.get("ok") and _row_has_update(core.get("result") or {}, APP_VERSION):
         _manual_update_attention_sources.add("core")
-    plugin_results = (plugins_checked.get("plugins") or {}) if isinstance(plugins_checked, dict) else {}
+    # UpdateMonitor.check_plugins() returns a direct {plugin_id: row} map.
+    plugin_results = plugins_checked if isinstance(plugins_checked, dict) else {}
     for plugin in plugins._plugins:
         row = plugin_results.get(plugin.id) or {}
-        if row.get("ok") and _row_has_update(row.get("result") or {}, plugin.plugin_version):
+        if row.get("ok") and _row_has_update(
+            row.get("result") or {},
+            plugin.plugin_version,
+        ):
             _manual_update_attention_sources.add(f"plugin:{plugin.id}")
+
+    _sync_wled_status_now()
 
     return jsonify({
         "ok": True,

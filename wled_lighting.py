@@ -22,7 +22,7 @@ class WLEDLightingManager:
   self.config_path=Path(config_path);self.plugin_provider=plugin_provider or (lambda:[]);self.system_state_provider=system_state_provider or (lambda:{})
   self.logger=logger;self.session=session or requests.Session();self._stop=threading.Event();self._thread=None
   self._connected=False;self._last_error='';self._last_success=0.;self._info={};self._state={};self._presets=[];self._effects=[];self._palettes=[];self._checked=0.
-  self._last_key='';self._last_sent=0.;self._active_source='disabled';self._active_preset=0;self._active_preset_name='';self._test_until=0.;self._test_started=0.
+  self._last_key='';self._last_sent=0.;self._last_state_signature='';self._active_source='disabled';self._active_preset=0;self._active_preset_name='';self._test_until=0.;self._test_started=0.
  def _cfg(self):
   e=parse_env(self.config_path)
   return {
@@ -36,7 +36,7 @@ class WLEDLightingManager:
  def _request(self,method,path,payload=None):
   c=self._cfg()
   if not c['url']:raise RuntimeError('WLED URL is not configured.')
-  r=self.session.request(method,c['url']+path,json=payload,timeout=c['timeout'],headers={'User-Agent':'RackDash-WLED/3.1.7'});r.raise_for_status()
+  r=self.session.request(method,c['url']+path,json=payload,timeout=c['timeout'],headers={'User-Agent':'RackDash-WLED/3.1.9'});r.raise_for_status()
   return r.json() if getattr(r,'content',b'') else {}
  def _load_presets(self):
   raw=self._request('GET','/presets.json')
@@ -150,7 +150,10 @@ class WLEDLightingManager:
    try:
     self.refresh_device();state=self._resolve_state(c,time.monotonic());self._active_source=state.get('source','unknown')
     self._active_preset=int(state.get('preset') or 0);self._active_preset_name=self._preset_name(self._active_preset)
-    self._send(state,c,self._active_source=='admin-test')
+    signature=f"{self._active_source}:{self._active_preset}"
+    changed=signature!=self._last_state_signature
+    self._send(state,c,self._active_source=='admin-test' or changed)
+    self._last_state_signature=signature
    except Exception as exc:
     self._connected=False;self._last_error=str(exc)[:300]
    self._stop.wait(.5)
@@ -171,6 +174,7 @@ class WLEDLightingManager:
   self._active_preset=int(state.get('preset') or 0)
   self._active_preset_name=self._preset_name(self._active_preset)
   self._send(state,c,force)
+  self._last_state_signature=f"{self._active_source}:{self._active_preset}"
   return self.status()
 
  def save_settings(self,x):
