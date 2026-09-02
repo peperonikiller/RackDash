@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 
 import requests
 
@@ -12,7 +14,7 @@ from _shared import TTLCache
 
 PLUGIN_ID = "weather"
 PLUGIN_NAME = "Weather"
-PLUGIN_VERSION = "3.0.1"
+PLUGIN_VERSION = "1.1.5"
 PLUGIN_OFFICIAL = True
 PLUGIN_SOURCE_PATH = "plugins/weather.py"
 PLUGIN_MIN_RACKDASH = "2.0.0"
@@ -51,6 +53,64 @@ UNITS = os.getenv("WEATHER_UNITS", "fahrenheit").lower()
 _geo_cache = TTLCache(21600)
 _weather_cache = TTLCache(300)
 _radar_cache = TTLCache(300)
+
+_RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
+_RETRY_DELAYS = (1.0, 3.0, 8.0)
+_LAST_GOOD_PATH = Path(__file__).resolve().parent.parent / "data" / "weather_last_good.json"
+
+
+class WeatherServiceUnavailable(RuntimeError):
+    pass
+
+
+def _is_retryable_request_error(exc):
+    if isinstance(exc, (requests.Timeout, requests.ConnectionError)):
+        return True
+    if isinstance(exc, requests.HTTPError):
+        response = getattr(exc, "response", None)
+        return bool(response is not None and response.status_code in _RETRYABLE_HTTP_STATUS)
+    return False
+
+
+def _request_with_retry(url, *, params=None, timeout=7):
+    last_error = None
+    attempts = len(_RETRY_DELAYS) + 1
+
+    for attempt in range(attempts):
+        try:
+            response = requests.get(url, params=params, timeout=timeout)
+            response.raise_for_status()
+            return response
+        except requests.RequestException as exc:
+            if not _is_retryable_request_error(exc):
+                raise
+            last_error = exc
+            if attempt < len(_RETRY_DELAYS):
+                time.sleep(_RETRY_DELAYS[attempt])
+
+    raise WeatherServiceUnavailable(str(last_error or "Weather service unavailable"))
+
+
+def _load_last_good():
+    try:
+        payload = json.loads(_LAST_GOOD_PATH.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def _save_last_good(data):
+    try:
+        _LAST_GOOD_PATH.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = _LAST_GOOD_PATH.with_suffix(".tmp")
+        temp_path.write_text(
+            json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        temp_path.replace(_LAST_GOOD_PATH)
+    except Exception:
+        # Weather should keep working even if the optional disk cache cannot be written.
+        pass
 
 
 PLUGIN_HTML = r"""
@@ -198,6 +258,7 @@ PLUGIN_CSS = r"""
 .plugin-weather .wx-condition-row{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}
 .plugin-weather .wx-condition-row strong{font-size:.68rem;color:#dce8ee}
 .plugin-weather .wx-condition-row span{font-size:.47rem;color:var(--muted)}
+.plugin-weather .wx-condition-row span.wx-stale{color:#ffb35c;font-weight:850;letter-spacing:.02em}
 .plugin-weather .wx-today-summary{
   margin-top:.42rem;
   color:var(--muted);
@@ -783,7 +844,21 @@ window.RackDashPlugins.weather={
 
     root.querySelector('[data-role="location"]').textContent=data.location;
     root.querySelector('[data-role="condition"]').textContent=this.text(data.code);
-    root.querySelector('[data-role="updated"]').textContent=data.current_time?`Updated ${this.formatTime(data.current_time)}`:"";
+    const updated=root.querySelector('[data-role="updated"]');
+    if(updated){
+      if(data.stale){
+        const cachedAt=data.fetched_at
+          ?new Date(Number(data.fetched_at)*1000).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})
+          :"earlier";
+        updated.textContent=`STALE · Open-Meteo unavailable · cached ${cachedAt}`;
+        updated.classList.add("wx-stale");
+        updated.title=data.service_message||"Showing last successful weather data.";
+      }else{
+        updated.textContent=data.current_time?`Updated ${this.formatTime(data.current_time)}`:"";
+        updated.classList.remove("wx-stale");
+        updated.removeAttribute("title");
+      }
+    }
 
     root.querySelector('[data-role="temp"]').textContent=`${Math.round(data.temp)}${data.unit}`;
     root.querySelector('[data-role="feels"]').textContent=`${Math.round(data.feels)}${data.unit}`;
@@ -841,7 +916,7 @@ def _geocode():
     if not LOCATION:
         return None
 
-    response = requests.get(
+    response = _request_with_retry(
         "https://geocoding-api.open-meteo.com/v1/search",
         params={
             "name": LOCATION,
@@ -851,7 +926,6 @@ def _geocode():
         },
         timeout=5,
     )
-    response.raise_for_status()
 
     results = response.json().get("results") or []
     if not results:
@@ -929,7 +1003,7 @@ def _radar_frame(latitude, longitude, minutes_ago):
 
     # NOAA updates approximately every 5 minutes. Round to a five-minute UTC
     # boundary and keep a five-minute ingestion offset.
-    now_ms = int(time.time() * 1000)
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
     step_ms = 5 * 60 * 1000
     requested_ms = now_ms - ((minutes_ago + 5) * 60 * 1000)
     requested_ms = (requested_ms // step_ms) * step_ms
@@ -966,7 +1040,7 @@ def _radar_frame(latitude, longitude, minutes_ago):
         },
         timeout=12,
         headers={
-            "User-Agent": "RackDash-Weather/3.0.1",
+            "User-Agent": "RackDash-Weather/1.1.2",
             "Accept": "image/png,image/*;q=0.8,*/*;q=0.2",
         },
     )
@@ -1032,7 +1106,7 @@ def _weather(loc):
     wind_unit = "mph" if imperial else "kmh"
     precip_unit = "inch" if imperial else "mm"
 
-    response = requests.get(
+    response = _request_with_retry(
         "https://api.open-meteo.com/v1/forecast",
         params={
             "latitude": loc["latitude"],
@@ -1081,8 +1155,6 @@ def _weather(loc):
         },
         timeout=7,
     )
-    response.raise_for_status()
-
     payload = response.json()
     current = payload.get("current") or {}
     hourly = payload.get("hourly") or {}
@@ -1253,18 +1325,34 @@ def get_data():
     if not LOCATION:
         return {"configured": False}
 
-    loc = _geocode()
-    if not loc:
-        return {"configured": False}
+    try:
+        loc = _geocode()
+        if not loc:
+            return {"configured": False}
 
-    data = {
-        "configured": True,
-    }
-    data.update(_weather(loc))
-    data["radar"] = _radar()
+        data = {
+            "configured": True,
+            "stale": False,
+            "service_status": "online",
+            "fetched_at": int(time.time()),
+        }
+        data.update(_weather(loc))
+        data["radar"] = _radar()
 
-    _weather_cache.set(data)
-    return dict(data)
+        _weather_cache.set(data)
+        _save_last_good(data)
+        return dict(data)
+
+    except WeatherServiceUnavailable as exc:
+        stale = _load_last_good()
+        if stale and stale.get("configured"):
+            stale = dict(stale)
+            stale["stale"] = True
+            stale["service_status"] = "temporarily_unavailable"
+            stale["service_message"] = "Open-Meteo is temporarily unavailable; showing last successful weather data."
+            stale["service_error"] = str(exc)[:180]
+            return stale
+        raise
 
 
 
